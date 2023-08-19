@@ -1,6 +1,6 @@
 use std::{fs, thread};
 use std::error::Error;
-use std::io::Read;
+use std::io::{BufRead, Read};
 use std::ops::Add;
 use std::result::Result;
 use std::time::Duration;
@@ -154,10 +154,10 @@ struct Partitioned<'a> {
 }
 
 struct Extended<'a> {
-    pgt: &'a [u8; PCD_PGT_LENGTH],
     header: &'a [u8; PCD_HEADER_LENGTH],
-    card_data: &'a [u8; PCD_CARD_DATA_LENGTH],
+    pgt: &'a [u8; PCD_PGT_LENGTH],
     header_duplicate: &'a [u8; PCD_HEADER_LENGTH],
+    card_data: &'a [u8; PCD_CARD_DATA_LENGTH],
 }
 
 const PCD_LENGTH: usize = 0x358;
@@ -193,11 +193,30 @@ impl<'a> From<PCD<Partitioned<'a>>> for PCD<Extended<'a>> {
         let part = value.state;
         PCD {
             state: Extended {
-                pgt: part.pgt,
                 header: part.header,
-                card_data: part.card_data,
+                pgt: part.pgt,
                 header_duplicate: part.header,
+                card_data: part.card_data,
             }
         }
+    }
+}
+
+impl PCD<Extended<'_>> {
+    fn checksum(&self) -> Result<u16, String> {
+        let state = &self.state;
+        let mut checksum: u16 = 0;
+        let binding = [state.header.as_slice(), state.pgt, state.header_duplicate, state.card_data].concat();
+        let data = binding.as_slice();
+        if data.len() % 2 != 0 {
+            return Err(format!("The data length {} is not dividable by 2", &data.len()))
+        }
+        for chunk in data.chunks_exact(2) {
+            let c0 = chunk[0];
+            let c1 = chunk[1];
+            checksum += u16::from_le_bytes([c0, c1]);
+            checksum = checksum.rotate_left(1);
+        }
+        Ok(checksum)
     }
 }
