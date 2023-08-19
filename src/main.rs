@@ -220,3 +220,19 @@ impl PCD<Extended<'_>> {
         Ok(checksum)
     }
 }
+
+fn key(address: MacAddress, checksum: u16) -> [u8; 8] {
+    let checksum_parts = checksum.to_le_bytes();
+    let mut key = [address[0], address[1], checksum_parts[0], checksum_parts[1], address[4], address[5], address[2], address[3]];
+    let mut hw_low = 0xa2u8;
+    let mut hw_high = 0x3fu8;
+    for i in 0..4 {
+        let i_low = 2 * i;
+        let i_high = i_low + 1;
+        key[i_low] ^= hw_low;
+        key[i_high] ^= hw_high;
+        hw_low = key[i_low];
+        hw_high = key[i_high];
+    }
+    key
+}
