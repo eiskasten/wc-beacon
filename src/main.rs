@@ -1,7 +1,8 @@
+use std::{fs, thread};
 use std::error::Error;
+use std::io::Read;
 use std::ops::Add;
 use std::result::Result;
-use std::thread;
 use std::time::Duration;
 
 use crc::{Crc, CRC_32_ISO_HDLC};
@@ -17,6 +18,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let dev_name = "wlp0s20f3";
     let dev_addr: MacAddress = [0x94, 0xe6, 0xf7, 0x06, 0xcf, 0x6b];
     let broadcast_addr: MacAddress = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
+    let r = fs::read("/")?;
+    let p = PCD::try_from(r.as_slice())?;
+    let p2: PCD<Partitioned> = p.into();
     let region = (German as u32).to_le_bytes();
 
     let f_00 = [0x0a, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, region[0], region[1], region[2], region[3], 0x00, 0x00, 0x70, 0x00, 0x28, 0x00, 0x0c, 0x00, 0xc5, 0xbd, 0x00, 0x00, 0xa8, 0x03, 0x00, 0x00, 0x03, 0xfc, 0x9f, 0xa4, 0x77, 0xa3, 0x6f, 0x56, 0x7c, 0x17, 0xb7, 0x56, 0x0e, 0x87, 0x38, 0xd8, 0xbc, 0x37, 0x71, 0x29, 0x9c, 0x0c, 0x4c, 0xd1, 0xba, 0x4d, 0xc0, 0x01, 0xd4, 0xbc, 0x81, 0x5b, 0xdd, 0xe6, 0x46, 0xd1, 0x57, 0x66, 0x95, 0x58, 0x81, 0x08, 0x1e, 0x69, 0x06, 0xe4, 0x93, 0x9b, 0xa8, 0x5f, 0xb7, 0x3a, 0x4f, 0x9a, 0xaa, 0x9b, 0x76, 0x86, 0xa7, 0xe8, 0x7f, 0xfd, 0x48, 0x60, 0xdf, 0x45, 0x2a, 0x6d, 0x30, 0x85, 0xa1, 0x8f, 0x1d, 0x3c, 0xb0, 0x70, 0x1e, 0xe1, 0x22, 0x7e, 0x70, 0x8e, 0x64, 0x67, 0xa4, 0xfd, 0xbf, 0xb1, 0xdb, 0x5d, 0xd2, 0x51, 0x02, 0xb0, 0x12, 0x6f, 0x88, 0xb9, 0x72, 0xb0, 0x77, 0xec, 0x84, 0x5e];
@@ -131,6 +135,69 @@ impl TryFrom<&str> for GGID {
             "es" => Ok(Spanish),
             "ko" => Ok(Korean),
             _ => Err(String::from("Unknown language code: ").add(value))
+        }
+    }
+}
+
+struct PCD<State> {
+    state: State,
+}
+
+struct Raw<'a> {
+    data: &'a [u8; PCD_LENGTH],
+}
+
+struct Partitioned<'a> {
+    pgt: &'a [u8; PCD_PGT_LENGTH],
+    header: &'a [u8; PCD_HEADER_LENGTH],
+    card_data: &'a [u8; PCD_CARD_DATA_LENGTH],
+}
+
+struct Extended<'a> {
+    pgt: &'a [u8; PCD_PGT_LENGTH],
+    header: &'a [u8; PCD_HEADER_LENGTH],
+    card_data: &'a [u8; PCD_CARD_DATA_LENGTH],
+    header_duplicate: &'a [u8; PCD_HEADER_LENGTH],
+}
+
+const PCD_LENGTH: usize = 0x358;
+// = (856)10
+const PCD_PGT_LENGTH: usize = 0x104;
+const PCD_HEADER_LENGTH: usize = 0x50;
+const PCD_CARD_DATA_LENGTH: usize = 0x204;
+
+impl<'a> TryFrom<&'a [u8]> for PCD<Raw<'a>> {
+    type Error = String;
+
+    fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
+        let sized_value: &[u8; PCD_LENGTH] = <&[u8; PCD_LENGTH]>::try_from(value).map_err(|_| format!("PCD size needs to be {}, but was: {}", PCD_LENGTH, value.len()))?;
+        Ok(PCD { state: Raw { data: sized_value } })
+    }
+}
+
+impl<'a> From<PCD<Raw<'a>>> for PCD<Partitioned<'a>> {
+    fn from(value: PCD<Raw<'a>>) -> Self {
+        let sized_value = value.state.data;
+        PCD {
+            state: Partitioned {
+                pgt: <&[u8; PCD_PGT_LENGTH]>::try_from(&sized_value[..PCD_PGT_LENGTH]).unwrap(),
+                header: <&[u8; PCD_HEADER_LENGTH]>::try_from(&sized_value[PCD_PGT_LENGTH..PCD_HEADER_LENGTH + PCD_PGT_LENGTH]).unwrap(),
+                card_data: <&[u8; PCD_CARD_DATA_LENGTH]>::try_from(&sized_value[PCD_HEADER_LENGTH + PCD_PGT_LENGTH..PCD_CARD_DATA_LENGTH + PCD_HEADER_LENGTH + PCD_PGT_LENGTH]).unwrap(),
+            }
+        }
+    }
+}
+
+impl<'a> From<PCD<Partitioned<'a>>> for PCD<Extended<'a>> {
+    fn from(value: PCD<Partitioned<'a>>) -> PCD<Extended<'a>> {
+        let part = value.state;
+        PCD {
+            state: Extended {
+                pgt: part.pgt,
+                header: part.header,
+                card_data: part.card_data,
+                header_duplicate: part.header,
+            }
         }
     }
 }
