@@ -42,7 +42,7 @@ impl Iterator for BeaconFrameGenerator {
                 &sequence[..2],
                 fragment
             ].concat();
-            let crc_checksum = CRC_32.checksum(packet.as_slice());
+            let crc_checksum = CRC_32.checksum(&packet[RADIO_HEAD.len()..]);
             [
                 packet.as_slice(),
                 &crc_checksum.to_le_bytes()
