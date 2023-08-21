@@ -2,14 +2,14 @@ use rc4::{KeyInit, Rc4, StreamCipher};
 
 use crate::MacAddress;
 
-const PCD_LENGTH: usize = PCD_PGT_LENGTH + PCD_HEADER_LENGTH + PCD_CARD_DATA_LENGTH;
+pub const PCD_LENGTH: usize = PCD_PGT_LENGTH + PCD_HEADER_LENGTH + PCD_CARD_DATA_LENGTH;
 // = (856)10
-const PCD_EXTENDED_LENGTH: usize = PCD_LENGTH + PCD_HEADER_LENGTH;
-const PCD_PGT_LENGTH: usize = 0x104;
-const PCD_HEADER_LENGTH: usize = 0x50;
-const PCD_CARD_DATA_LENGTH: usize = 0x204;
-const PCD_FRAGMENTS: usize = 0x0a;
-const PCD_FRAGMENT_LENGTH: usize = PCD_EXTENDED_LENGTH / PCD_FRAGMENTS;
+pub const PCD_EXTENDED_LENGTH: usize = PCD_LENGTH + PCD_HEADER_LENGTH;
+pub const PCD_PGT_LENGTH: usize = 0x104;
+pub const PCD_HEADER_LENGTH: usize = 0x50;
+pub const PCD_CARD_DATA_LENGTH: usize = 0x204;
+pub const PCD_FRAGMENTS: usize = 0x0a;
+pub const PCD_FRAGMENT_LENGTH: usize = PCD_EXTENDED_LENGTH / PCD_FRAGMENTS;
 
 pub type PCDFragment = [u8; PCD_FRAGMENT_LENGTH];
 pub type PCDHeader = [u8; PCD_HEADER_LENGTH];
