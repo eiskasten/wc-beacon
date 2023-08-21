@@ -48,6 +48,12 @@ impl<'a> TryFrom<&'a [u8]> for PCD<Raw> {
     }
 }
 
+impl PCD<Partitioned> {
+    pub fn header(&self) -> PCDHeader {
+        self.state.header
+    }
+}
+
 impl From<PCD<Raw>> for PCD<Partitioned> {
     fn from(value: PCD<Raw>) -> Self {
         let sized_value = value.state.data;
