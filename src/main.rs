@@ -10,6 +10,7 @@ use crate::GGID::{English, French, German, Italian, Japanese, Korean, Spanish};
 use crate::pcd::{Partitioned, PCD};
 
 mod pcd;
+mod beacon;
 
 type MacAddress = [u8; 6];
 
@@ -114,7 +115,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 #[repr(u32)]
-enum GGID {
+pub enum GGID {
     Japanese = 0x345,
     English = 0x400318,
     French = 0x8000cd,
