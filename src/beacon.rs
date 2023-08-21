@@ -14,7 +14,7 @@ impl BeaconFrameGenerator {
     pub fn new(address: MacAddress, region: GGID, pcd: &PCD<Encrypted>, header: PCDHeader, checksum: u16) -> Self {
         let mut fragments = pcd.fragments();
         fragments.push(zero_pad(header));
-        let beacon_frames = (0..fragments.len()).map(|f| wireless_management(packet(fragments.len() as u32, f as u8, checksum, PCD_EXTENDED_LENGTH as u32, *fragments.get(f).unwrap(), region))).collect();
+        let beacon_frames = (0..fragments.len()).map(|f| wireless_management(packet(fragments.len() as u32, f as u16, checksum, PCD_EXTENDED_LENGTH as u32, *fragments.get(f).unwrap(), region))).collect();
         let mut head: [u8; HEAD_LENGTH] = [0; HEAD_LENGTH];
         head[..RADIO_HEAD.len()].copy_from_slice(&RADIO_HEAD);
         head[RADIO_HEAD.len()..ADDRESS_OFFSET].copy_from_slice(&BEACON_FRAME);
@@ -90,7 +90,7 @@ const WIRELESS_MANAGEMENT: [u8; 32] = [
 
 // packet
 
-fn packet(frames_count: u32, fragment_index: u8, checksum: u16, payload_length: u32, packet_payload: PCDFragment, ggid: GGID) -> Vec<u8> {
+fn packet(frames_count: u32, fragment_index: u16, checksum: u16, payload_length: u32, packet_payload: PCDFragment, ggid: GGID) -> Vec<u8> {
     [
         frames_count.to_le_bytes().as_slice(),
         &0x1u16.to_le_bytes(),
@@ -101,7 +101,7 @@ fn packet(frames_count: u32, fragment_index: u8, checksum: u16, payload_length: 
         &0x28u16.to_le_bytes(),
         &0xcu16.to_le_bytes(),
         &checksum.to_le_bytes(),
-        &(if fragment_index == (frames_count - 1) as u8 { 0xff } else { fragment_index }).to_le_bytes(),
+        &(if fragment_index == (frames_count - 1) as u16 { 0xff } else { fragment_index }).to_le_bytes(),
         &payload_length.to_le_bytes(),
         &packet_payload
     ].concat()
