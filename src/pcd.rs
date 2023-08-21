@@ -93,7 +93,7 @@ impl PCD<Extended> {
         for chunk in data.chunks_exact(2) {
             let c0 = chunk[0];
             let c1 = chunk[1];
-            checksum += u16::from_le_bytes([c0, c1]);
+            checksum = checksum.wrapping_add(u16::from_le_bytes([c0, c1]));
             checksum = checksum.rotate_left(1);
         }
         Ok(checksum)
@@ -144,6 +144,6 @@ fn key(address: &MacAddress, checksum: u16) -> [u8; 8] {
 
 pub fn zero_pad(header: PCDHeader) -> PCDFragment {
     let mut padded_header: PCDFragment = [0; PCD_FRAGMENT_LENGTH];
-    padded_header.copy_from_slice(&header);
+    padded_header[..PCD_HEADER_LENGTH].copy_from_slice(&header);
     padded_header
 }
