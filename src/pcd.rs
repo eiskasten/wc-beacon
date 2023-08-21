@@ -9,7 +9,7 @@ pub const PCD_PGT_LENGTH: usize = 0x104;
 pub const PCD_HEADER_LENGTH: usize = 0x50;
 pub const PCD_CARD_DATA_LENGTH: usize = 0x204;
 pub const PCD_FRAGMENTS: usize = 0x0a;
-pub const PCD_FRAGMENT_LENGTH: usize = PCD_EXTENDED_LENGTH / PCD_FRAGMENTS;
+pub const PCD_FRAGMENT_LENGTH: usize = PCD_EXTENDED_LENGTH / (PCD_FRAGMENTS - 1);
 
 pub type PCDFragment = [u8; PCD_FRAGMENT_LENGTH];
 pub type PCDHeader = [u8; PCD_HEADER_LENGTH];
@@ -122,7 +122,7 @@ impl PCD<Encrypted> {
     }
 
     pub fn fragments(&self) -> Vec<PCDFragment> {
-        self.state.data.chunks_exact(PCD_EXTENDED_LENGTH / PCD_FRAGMENTS).map(|f| <[u8; PCD_FRAGMENT_LENGTH]>::try_from(f).unwrap()).collect()
+        self.state.data.chunks_exact(PCD_EXTENDED_LENGTH / (PCD_FRAGMENTS - 1)).map(|f| <[u8; PCD_FRAGMENT_LENGTH]>::try_from(f).unwrap()).collect()
     }
 }
 
