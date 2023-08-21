@@ -3,16 +3,26 @@ use crate::pcd::{Encrypted, PCD, PCD_EXTENDED_LENGTH, PCDFragment, PCDHeader, ze
 
 pub struct BeaconFrameGenerator {
     beacon_frames: Vec<Vec<u8>>,
+    head: [u8; HEAD_LENGTH],
     counter: u64,
 }
+
+const HEAD_LENGTH: usize = RADIO_HEAD.len() + BEACON_FRAME.len() + 2 * 6;
+const ADDRESS_OFFSET: usize = RADIO_HEAD.len() + BEACON_FRAME.len();
 
 impl BeaconFrameGenerator {
     pub fn new(address: MacAddress, region: GGID, pcd: &PCD<Encrypted>, header: PCDHeader, checksum: u16) -> Self {
         let mut fragments = pcd.fragments();
         fragments.push(zero_pad(header));
-        let beacon_frames = (0..fragments.len()).map(|f| beacon_frame(&address, packet(fragments.len() as u32, f as u8, checksum, PCD_EXTENDED_LENGTH as u32, *fragments.get(f).unwrap(), region))).collect();
+        let beacon_frames = (0..fragments.len()).map(|f| wireless_management(packet(fragments.len() as u32, f as u8, checksum, PCD_EXTENDED_LENGTH as u32, *fragments.get(f).unwrap(), region))).collect();
+        let mut head: [u8; HEAD_LENGTH] = [0; HEAD_LENGTH];
+        head[..RADIO_HEAD.len()].copy_from_slice(&RADIO_HEAD);
+        head[RADIO_HEAD.len()..ADDRESS_OFFSET].copy_from_slice(&BEACON_FRAME);
+        head[ADDRESS_OFFSET..ADDRESS_OFFSET + 6].copy_from_slice(&address);
+        head[ADDRESS_OFFSET + 6..ADDRESS_OFFSET + 12].copy_from_slice(&address);
         Self {
             beacon_frames,
+            head,
             counter: 0,
         }
     }
@@ -25,8 +35,8 @@ impl Iterator for BeaconFrameGenerator {
         let sequence = (self.counter << 4).to_le_bytes();
         self.counter += 1;
         self.beacon_frames.get(self.counter as usize % self.beacon_frames.len()).map(|fragment| [
-            RADIO_HEAD.as_slice(),
-            sequence.as_slice(),
+            &self.head,
+            &sequence[..2],
             fragment
         ].concat())
     }
@@ -52,8 +62,6 @@ const RADIO_HEAD: [u8; 56] = [
     0x01 // antenna
 ];
 
-// sequence number, u16
-
 const BEACON_FRAME: [u8; 10] = [
     0x80, 0x00, // frame control field (type, subtype)
     0x00, 0x00, // duration
@@ -62,6 +70,7 @@ const BEACON_FRAME: [u8; 10] = [
 
 //    0xa4, 0xc0, 0xe1, 0x6e, 0x76, 0x80, // source address
 //    0xa4, 0xc0, 0xe1, 0x6e, 0x76, 0x80, // bssid
+// sequence number, u16
 
 const WIRELESS_MANAGEMENT: [u8; 32] = [
 // fixed parameters
@@ -98,12 +107,9 @@ fn packet(frames_count: u32, fragment_index: u8, checksum: u16, payload_length: 
     ].concat()
 }
 
-fn beacon_frame(address: &MacAddress, packet: Vec<u8>) -> Vec<u8> {
+fn wireless_management(packet: Vec<u8>) -> Vec<u8> {
     [
-        BEACON_FRAME.as_slice(),
-        address,
-        address,
-        &WIRELESS_MANAGEMENT,
+        WIRELESS_MANAGEMENT.as_slice(),
         &packet
     ].concat()
 }
