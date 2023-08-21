@@ -1,11 +1,13 @@
 use std::{fs, thread};
 use std::error::Error;
+use std::fmt::format;
 use std::io::{BufRead, Read};
-use std::ops::Add;
+use std::ops::{Add, Deref};
 use std::result::Result;
 use std::time::Duration;
 
 use crc::{Crc, CRC_32_ISO_HDLC};
+use rc4::{KeyInit, Rc4, StreamCipher};
 
 use crate::GGID::{English, French, German, Italian, Japanese, Korean, Spanish};
 
@@ -143,53 +145,58 @@ struct PCD<State> {
     state: State,
 }
 
-struct Raw<'a> {
-    data: &'a [u8; PCD_LENGTH],
+struct Raw {
+    data: [u8; PCD_LENGTH],
 }
 
-struct Partitioned<'a> {
-    pgt: &'a [u8; PCD_PGT_LENGTH],
-    header: &'a [u8; PCD_HEADER_LENGTH],
-    card_data: &'a [u8; PCD_CARD_DATA_LENGTH],
+struct Encrypted {
+    data: [u8; PCD_EXTENDED_LENGTH],
 }
 
-struct Extended<'a> {
-    header: &'a [u8; PCD_HEADER_LENGTH],
-    pgt: &'a [u8; PCD_PGT_LENGTH],
-    header_duplicate: &'a [u8; PCD_HEADER_LENGTH],
-    card_data: &'a [u8; PCD_CARD_DATA_LENGTH],
+struct Partitioned {
+    pgt: [u8; PCD_PGT_LENGTH],
+    header: [u8; PCD_HEADER_LENGTH],
+    card_data: [u8; PCD_CARD_DATA_LENGTH],
 }
 
-const PCD_LENGTH: usize = 0x358;
+struct Extended {
+    header: [u8; PCD_HEADER_LENGTH],
+    pgt: [u8; PCD_PGT_LENGTH],
+    header_duplicate: [u8; PCD_HEADER_LENGTH],
+    card_data: [u8; PCD_CARD_DATA_LENGTH],
+}
+
+const PCD_LENGTH: usize = PCD_PGT_LENGTH + PCD_HEADER_LENGTH + PCD_CARD_DATA_LENGTH;
 // = (856)10
+const PCD_EXTENDED_LENGTH: usize = PCD_LENGTH + PCD_HEADER_LENGTH;
 const PCD_PGT_LENGTH: usize = 0x104;
 const PCD_HEADER_LENGTH: usize = 0x50;
 const PCD_CARD_DATA_LENGTH: usize = 0x204;
 
-impl<'a> TryFrom<&'a [u8]> for PCD<Raw<'a>> {
+impl<'a> TryFrom<&'a [u8]> for PCD<Raw> {
     type Error = String;
 
     fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-        let sized_value: &[u8; PCD_LENGTH] = <&[u8; PCD_LENGTH]>::try_from(value).map_err(|_| format!("PCD size needs to be {}, but was: {}", PCD_LENGTH, value.len()))?;
+        let sized_value: [u8; PCD_LENGTH] = <[u8; PCD_LENGTH]>::try_from(value).map_err(|_| format!("PCD size needs to be {}, but was: {}", PCD_LENGTH, value.len()))?;
         Ok(PCD { state: Raw { data: sized_value } })
     }
 }
 
-impl<'a> From<PCD<Raw<'a>>> for PCD<Partitioned<'a>> {
-    fn from(value: PCD<Raw<'a>>) -> Self {
+impl From<PCD<Raw>> for PCD<Partitioned> {
+    fn from(value: PCD<Raw>) -> Self {
         let sized_value = value.state.data;
         PCD {
             state: Partitioned {
-                pgt: <&[u8; PCD_PGT_LENGTH]>::try_from(&sized_value[..PCD_PGT_LENGTH]).unwrap(),
-                header: <&[u8; PCD_HEADER_LENGTH]>::try_from(&sized_value[PCD_PGT_LENGTH..PCD_HEADER_LENGTH + PCD_PGT_LENGTH]).unwrap(),
-                card_data: <&[u8; PCD_CARD_DATA_LENGTH]>::try_from(&sized_value[PCD_HEADER_LENGTH + PCD_PGT_LENGTH..PCD_CARD_DATA_LENGTH + PCD_HEADER_LENGTH + PCD_PGT_LENGTH]).unwrap(),
+                pgt: <[u8; PCD_PGT_LENGTH]>::try_from(&sized_value[..PCD_PGT_LENGTH]).unwrap(),
+                header: <[u8; PCD_HEADER_LENGTH]>::try_from(&sized_value[PCD_PGT_LENGTH..PCD_HEADER_LENGTH + PCD_PGT_LENGTH]).unwrap(),
+                card_data: <[u8; PCD_CARD_DATA_LENGTH]>::try_from(&sized_value[PCD_HEADER_LENGTH + PCD_PGT_LENGTH..PCD_CARD_DATA_LENGTH + PCD_HEADER_LENGTH + PCD_PGT_LENGTH]).unwrap(),
             }
         }
     }
 }
 
-impl<'a> From<PCD<Partitioned<'a>>> for PCD<Extended<'a>> {
-    fn from(value: PCD<Partitioned<'a>>) -> PCD<Extended<'a>> {
+impl From<PCD<Partitioned>> for PCD<Extended> {
+    fn from(value: PCD<Partitioned>) -> PCD<Extended> {
         let part = value.state;
         PCD {
             state: Extended {
@@ -202,11 +209,11 @@ impl<'a> From<PCD<Partitioned<'a>>> for PCD<Extended<'a>> {
     }
 }
 
-impl PCD<Extended<'_>> {
+impl PCD<Extended> {
     fn checksum(&self) -> Result<u16, String> {
         let state = &self.state;
         let mut checksum: u16 = 0;
-        let binding = [state.header.as_slice(), state.pgt, state.header_duplicate, state.card_data].concat();
+        let binding = [state.header.as_slice(), &state.pgt, &state.header_duplicate, &state.card_data].concat();
         let data = binding.as_slice();
         if data.len() % 2 != 0 {
             return Err(format!("The data length {} is not dividable by 2", &data.len()))
@@ -219,9 +226,31 @@ impl PCD<Extended<'_>> {
         }
         Ok(checksum)
     }
+
+    fn encrypt(self, address: &MacAddress) -> Result<PCD<Encrypted>, String> {
+        let checksum = self.checksum()?;
+        let state = self.state;
+        let data: &mut [u8] = &mut [state.header.as_slice(), &state.pgt, &state.header_duplicate, &state.card_data].concat();
+        let key = key(address, checksum);
+        let mut rc4 = Rc4::new(&key.into());
+        rc4.apply_keystream(data.as_mut());
+        let imm_data: &[u8] = data;
+        let sized_data: [u8; PCD_EXTENDED_LENGTH] = <[u8; PCD_EXTENDED_LENGTH]>::try_from(imm_data).map_err(|_| format!("Encrypted data length is {} instead of {}", data.len(), PCD_LENGTH))?;
+        Ok(PCD::new(sized_data))
+    }
 }
 
-fn key(address: MacAddress, checksum: u16) -> [u8; 8] {
+impl PCD<Encrypted> {
+    fn new(data: [u8; PCD_EXTENDED_LENGTH]) -> Self {
+        PCD {
+            state: Encrypted {
+                data
+            }
+        }
+    }
+}
+
+fn key(address: &MacAddress, checksum: u16) -> [u8; 8] {
     let checksum_parts = checksum.to_le_bytes();
     let mut key = [address[0], address[1], checksum_parts[0], checksum_parts[1], address[4], address[5], address[2], address[3]];
     let mut hw_low = 0xa2u8;
