@@ -1,3 +1,5 @@
+use crc::{Crc, CRC_32_ISO_HDLC};
+
 use crate::{GGID, MacAddress};
 use crate::pcd::{Encrypted, PCD, PCD_EXTENDED_LENGTH, PCDFragment, PCDHeader, zero_pad};
 
@@ -9,6 +11,7 @@ pub struct BeaconFrameGenerator {
 
 const HEAD_LENGTH: usize = RADIO_HEAD.len() + BEACON_FRAME.len() + 2 * 6;
 const ADDRESS_OFFSET: usize = RADIO_HEAD.len() + BEACON_FRAME.len();
+const CRC_32: Crc<u32> = Crc::<u32>::new(&CRC_32_ISO_HDLC);
 
 impl BeaconFrameGenerator {
     pub fn new(address: MacAddress, region: GGID, pcd: &PCD<Encrypted>, header: PCDHeader, checksum: u16) -> Self {
@@ -34,11 +37,18 @@ impl Iterator for BeaconFrameGenerator {
     fn next(&mut self) -> Option<Self::Item> {
         let sequence = (self.counter << 4).to_le_bytes();
         self.counter += 1;
-        self.beacon_frames.get(self.counter as usize % self.beacon_frames.len()).map(|fragment| [
-            &self.head,
-            &sequence[..2],
-            fragment
-        ].concat())
+        self.beacon_frames.get(self.counter as usize % self.beacon_frames.len()).map(|fragment| {
+            let packet: Vec<u8> = [
+                &self.head,
+                &sequence[..2],
+                fragment
+            ].concat();
+            let crc_checksum = CRC_32.checksum(packet.as_slice());
+            [
+                packet.as_slice(),
+                &crc_checksum.to_le_bytes()
+            ].concat()
+        })
     }
 }
 
