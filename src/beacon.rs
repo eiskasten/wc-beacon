@@ -1,14 +1,19 @@
 use crate::{GGID, MacAddress};
-use crate::pcd::{Encrypted, PCD, PCDFragment};
+use crate::pcd::{Encrypted, PCD, PCD_EXTENDED_LENGTH, PCDFragment, PCDHeader, zero_pad};
 
 pub struct BeaconFrameGenerator {
+    beacon_frames: Vec<Vec<u8>>,
     counter: u64,
 }
 
 impl BeaconFrameGenerator {
-    pub fn new(address: &MacAddress, region: GGID, pcd: &PCD<Encrypted>) -> Self {
+    pub fn new(address: MacAddress, region: GGID, pcd: &PCD<Encrypted>, header: PCDHeader, checksum: u16) -> Self {
+        let mut fragments = pcd.fragments();
+        fragments.push(zero_pad(header));
+        let beacon_frames = (0..fragments.len()).map(|f| beacon_frame(&address, packet(fragments.len() as u32, f as u8, checksum, PCD_EXTENDED_LENGTH as u32, *fragments.get(f).unwrap(), region))).collect();
         Self {
-            counter: 0
+            beacon_frames,
+            counter: 0,
         }
     }
 }
@@ -17,8 +22,13 @@ impl Iterator for BeaconFrameGenerator {
     type Item = Vec<u8>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        let sequence = (self.counter << 4).to_le_bytes();
         self.counter += 1;
-        None
+        self.beacon_frames.get(self.counter as usize % self.beacon_frames.len()).map(|fragment| [
+            RADIO_HEAD.as_slice(),
+            sequence.as_slice(),
+            fragment
+        ].concat())
     }
 }
 
@@ -82,9 +92,19 @@ fn packet(frames_count: u32, fragment_index: u8, checksum: u16, payload_length: 
         &0x28u16.to_le_bytes(),
         &0xcu16.to_le_bytes(),
         &checksum.to_le_bytes(),
-        &fragment_index.to_le_bytes(),
+        &(if fragment_index == (frames_count - 1) as u8 { 0xff } else { fragment_index }).to_le_bytes(),
         &payload_length.to_le_bytes(),
         &packet_payload
+    ].concat()
+}
+
+fn beacon_frame(address: &MacAddress, packet: Vec<u8>) -> Vec<u8> {
+    [
+        BEACON_FRAME.as_slice(),
+        address,
+        address,
+        &WIRELESS_MANAGEMENT,
+        &packet
     ].concat()
 }
 
