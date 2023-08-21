@@ -135,3 +135,9 @@ fn key(address: &MacAddress, checksum: u16) -> [u8; 8] {
     }
     key
 }
+
+pub fn zero_pad(header: PCDHeader) -> PCDFragment {
+    let mut padded_header: PCDFragment = [0; PCD_FRAGMENT_LENGTH];
+    padded_header.copy_from_slice(&header);
+    padded_header
+}
