@@ -36,8 +36,7 @@ impl Iterator for BeaconFrameGenerator {
 
     fn next(&mut self) -> Option<Self::Item> {
         let sequence = (self.counter << 4).to_le_bytes();
-        self.counter += 1;
-        self.beacon_frames.get(self.counter as usize % self.beacon_frames.len()).map(|fragment| {
+        let next = self.beacon_frames.get(self.counter as usize % self.beacon_frames.len()).map(|fragment| {
             let packet: Vec<u8> = [
                 &self.head,
                 &sequence[..2],
@@ -48,7 +47,9 @@ impl Iterator for BeaconFrameGenerator {
                 packet.as_slice(),
                 &crc_checksum.to_le_bytes()
             ].concat()
-        })
+        });
+        self.counter += 1;
+        next
     }
 }
 
