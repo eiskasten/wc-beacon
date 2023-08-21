@@ -115,6 +115,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 #[repr(u32)]
+#[derive(Copy, Clone)]
 pub enum GGID {
     Japanese = 0x345,
     English = 0x400318,
