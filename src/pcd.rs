@@ -12,6 +12,7 @@ const PCD_FRAGMENTS: usize = 0x0a;
 const PCD_FRAGMENT_LENGTH: usize = PCD_EXTENDED_LENGTH / PCD_FRAGMENTS;
 
 pub type PCDFragment = [u8; PCD_FRAGMENT_LENGTH];
+pub type PCDHeader = [u8; PCD_HEADER_LENGTH];
 
 pub struct PCD<State> {
     state: State,
@@ -27,14 +28,14 @@ pub struct Encrypted {
 
 pub struct Partitioned {
     pgt: [u8; PCD_PGT_LENGTH],
-    header: [u8; PCD_HEADER_LENGTH],
+    header: PCDHeader,
     card_data: [u8; PCD_CARD_DATA_LENGTH],
 }
 
 pub struct Extended {
-    header: [u8; PCD_HEADER_LENGTH],
+    header: PCDHeader,
     pgt: [u8; PCD_PGT_LENGTH],
-    header_duplicate: [u8; PCD_HEADER_LENGTH],
+    header_duplicate: PCDHeader,
     card_data: [u8; PCD_CARD_DATA_LENGTH],
 }
 
