@@ -25,9 +25,9 @@ disadvantages:
 - Does not behave exactly like the Pokémon Distribution Rom
 - May not be compatible with all Wi-Fi chips
 
-## Installation
+## Compile From Source
 
-To install Wondercard Beacon, you will need to have Rust and Cargo installed. You can install them
+To compile Wondercard Beacon, you will need to have Rust and Cargo installed. You can install them
 using [rustup](https://rustup.rs/).
 
 Once you have Rust and Cargo installed, follow these steps:
@@ -35,6 +35,7 @@ Once you have Rust and Cargo installed, follow these steps:
 1. Clone this repository: `git clone https://github.com/Eiskasten/wc-beacon.git`
 2. Navigate to the project directory: `cd wc-beacon`
 3. Build the application: `cargo build --release`
+4. The resulting application will be located at: `target/release/wc-beacon`
 
 ## Usage
 
@@ -63,19 +64,37 @@ After these steps, you may finally distribute your wondercards using the example
 
 Here are some example usages of Wondercard Beacon:
 
+## Linux
+
 ```sh
 # Distribute the membercard using wlp0s20f3, requires root/sudo
-cargo run -- dist -p membercard.pcd -r en -d wlp0s20f3
+sudo ./wc-beacon dist -p membercard.pcd -r en -d wlp0s20f3
 # You can then receive the mystery gift in your pokemon game.
 
 # Decrypt encrypted membercard
-cargo run -- dec -e membercard.pcd.enc -c 1cb4 -a a4:c0:e1:6e:76:80 -p decryped.pcd
+./wc-beacon dec -e membercard.pcd.enc -c 1cb4 -a a4:c0:e1:6e:76:80 -p decryped.pcd
 ```
 
-It might be possible that commands which require root/sudo must be run
-with `sudo ./target/release/wc-beacon <arguments>` instead of `sudo cargo run -- <arguments>`.
+For further options, run `./wc-beacon dist --help` and `./wc-beacon dec --help`.
 
-For further options, run `cargo run -- dist --help` and `cargo run -- dec --help`.
+`membercard.pcd` and `membercard.pcd.enc` are assumed to be located in the same directory as your executable.
+
+## Windows
+
+You have to open a cmd windows with administrator privileges and change to the directory where the `wc-beacon.exe` is
+located at.
+`membercard.pcd` and `membercard.pcd.enc` are assumed to be located in the same directory.
+
+```bat
+:: Distribute the membercard using wlp0s20f3, requires administrator
+wc-beacon.exe dist -p membercard.pcd -r en -d wlp0s20f3
+:: You can then receive the mystery gift in your pokemon game.
+
+:: Decrypt encrypted membercard
+wc-beacon.exe dec -e membercard.pcd.enc -c 1cb4 -a a4:c0:e1:6e:76:80 -p decryped.pcd
+```
+
+For further options, run `wc-beacon.exe dist --help` and `wc-beacon.exe dec --help`.
 
 ## Links
 
