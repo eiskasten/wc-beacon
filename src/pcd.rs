@@ -156,9 +156,9 @@ impl PCD<Encrypted> {
         let mut rc4 = Rc4::new(&key.into());
         let mut data = self.state.data;
         rc4.apply_keystream(data.as_mut());
-        let header: [u8; PCD_HEADER_LENGTH] = [0; PCD_HEADER_LENGTH];
-        let pgt: [u8; PCD_PGT_LENGTH] = [0; PCD_PGT_LENGTH];
-        let card_data: [u8; PCD_CARD_DATA_LENGTH] = [0; PCD_CARD_DATA_LENGTH];
+        let mut header: [u8; PCD_HEADER_LENGTH] = [0; PCD_HEADER_LENGTH];
+        let mut pgt: [u8; PCD_PGT_LENGTH] = [0; PCD_PGT_LENGTH];
+        let mut card_data: [u8; PCD_CARD_DATA_LENGTH] = [0; PCD_CARD_DATA_LENGTH];
         header.copy_from_slice(&data[0..PCD_HEADER_LENGTH]);
         pgt.copy_from_slice(&data[PCD_HEADER_LENGTH..PCD_PGT_LENGTH + PCD_HEADER_LENGTH]);
         card_data.copy_from_slice(&data[2 * PCD_HEADER_LENGTH + PCD_PGT_LENGTH..PCD_CARD_DATA_LENGTH + PCD_PGT_LENGTH + 2 * PCD_HEADER_LENGTH]);
