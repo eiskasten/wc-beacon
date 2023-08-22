@@ -10,9 +10,13 @@ use crc::{Crc, CRC_32_ISO_HDLC};
 use crate::{GGID, MacAddress};
 use crate::pcd::{Encrypted, Extended, Partitioned, PCD, PCD_EXTENDED_LENGTH, PCDFragment, PCDHeader, Raw, zero_pad};
 
+/// A beacon frame generator which can generate an indefinite number of beacon frames.
 pub struct BeaconFrameGenerator {
+    /// The pre-constructed packets without the radio head.
     beacon_frames: Vec<Vec<u8>>,
+    /// The radio head and the mac addresses.
     head: [u8; HEAD_LENGTH],
+    /// A counter used for sequences.
     counter: u64,
 }
 
@@ -20,6 +24,25 @@ const HEAD_LENGTH: usize = RADIO_HEAD.len() + BEACON_FRAME.len() + 2 * 6;
 const ADDRESS_OFFSET: usize = RADIO_HEAD.len() + BEACON_FRAME.len();
 const CRC_32: Crc<u32> = Crc::<u32>::new(&CRC_32_ISO_HDLC);
 
+/// Distributes encrypted packets using the provided parameters.
+///
+/// This function sends encrypted packets to a network device at a specified interval,
+/// generating beacon frames with appropriate headers.
+///
+/// # Arguments
+///
+/// * `pcd` - A [PathBuf] representing the path to the PCD file.
+/// * `region` - A [GGID] indicating the region.
+/// * `device` - A [String] representing the network device name.
+/// * `address` - A [MacAddress] representing the Ethernet address.
+/// * `interval` - A [u64] specifying the time interval between sending packets, in microseconds.
+///
+/// # Returns
+///
+/// Returns `Ok(())` if the distribution process runs successfully,
+/// otherwise returns an error wrapped in a `Box<dyn Error>`.
+/// However, this function will actually never terminate on success and will run forever.
+///
 pub fn distribute(pcd: PathBuf, region: GGID, device: String, address: MacAddress, interval: u64) -> Result<(), Box<dyn Error>> {
     let broadcast_addr: MacAddress = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
     eprintln!("Use device '{}' with ethernet address '{:02x?}' and broadcast address '{:02x?}'", device, address, broadcast_addr);
@@ -40,6 +63,23 @@ pub fn distribute(pcd: PathBuf, region: GGID, device: String, address: MacAddres
 }
 
 impl BeaconFrameGenerator {
+    /// Creates a new [BeaconFrameGenerator] instance with the provided parameters.
+    ///
+    /// This function initializes a [BeaconFrameGenerator] instance, generating beacon
+    /// frames for encrypted fragments of the PCD data.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - A [MacAddress] representing the Ethernet address.
+    /// * `region` - A [GGID] indicating the region.
+    /// * `pcd` - A reference to the encrypted PCD data.
+    /// * `header` - A [PCDHeader] representing the PCD header.
+    /// * `checksum` - A [u16] representing the checksum of the extended PCD.
+    ///
+    /// # Returns
+    ///
+    /// Returns a new [BeaconFrameGenerator] instance.
+    ///
     pub fn new(address: MacAddress, region: GGID, pcd: &PCD<Encrypted>, header: PCDHeader, checksum: u16) -> Self {
         let mut fragments = pcd.fragments();
         fragments.push(zero_pad(header));
@@ -60,6 +100,18 @@ impl BeaconFrameGenerator {
 impl Iterator for BeaconFrameGenerator {
     type Item = Vec<u8>;
 
+    /// Generates the next beacon frame packet.
+    ///
+    /// This method generates the next beacon frame packet in the sequence,
+    /// combining the beacon frame header, sequence information, fragment data,
+    /// and CRC checksum.
+    ///
+    /// # Returns
+    ///
+    /// Returns an [Option] containing the next beacon frame packet as a [Vec<u8>].
+    /// If there are no more packets to generate, it returns [None].
+    /// However, this should actually never happen.
+    ///
     fn next(&mut self) -> Option<Self::Item> {
         let sequence = (self.counter << 4).to_le_bytes();
         let next = self.beacon_frames.get(self.counter as usize % self.beacon_frames.len()).map(|fragment| {
@@ -127,48 +179,28 @@ const WIRELESS_MANAGEMENT: [u8; 32] = [
 
 // packet
 
-fn packet(frames_count: u32, fragment_index: u16, checksum: u16, payload_length: u32, packet_payload: PCDFragment, ggid: GGID) -> Vec<u8> {
-    [
-        frames_count.to_le_bytes().as_slice(),
-        &0x1u16.to_le_bytes(),
-        &0x1u16.to_le_bytes(),
-        &(ggid as u32).to_le_bytes(),
-        &0x0u16.to_le_bytes(),
-        &0x70u16.to_le_bytes(),
-        &0x28u16.to_le_bytes(),
-        &0xcu16.to_le_bytes(),
-        &checksum.to_le_bytes(),
-        &(if fragment_index == (frames_count - 1) as u16 { 0xffff } else { fragment_index }).to_le_bytes(),
-        &payload_length.to_le_bytes(),
-        &packet_payload
-    ].concat()
-}
-
+/// Creates a packet for the given beacon frame parameters.
+///
+/// This function constructs a packet using the provided parameters for the
+/// beacon frame, including frames count, fragment index, checksum, payload
+/// length, packet payload, and GGID.
+///
+/// # Arguments
+///
+/// * `frames_count` - The total number of frames in the beacon frame sequence.
+/// * `fragment_index` - The index of the current fragment within the sequence.
+/// * `checksum` - The checksum value of the packet.
+/// * `payload_length` - The length of the packet payload.
+/// * `packet_payload` - The payload data of the packet.
+/// * `ggid` - A [GGID] indicating the region.
+///
+/// # Returns
+///
+/// Returns a [Vec<u8>] containing the constructed packet.
+///
 fn wireless_management(packet: Vec<u8>) -> Vec<u8> {
     [
         WIRELESS_MANAGEMENT.as_slice(),
         &packet
     ].concat()
 }
-
-// Length  Value/Meaning
-// 1  0xdd (tag ID)
-// 1  0x88 (tag length)
-// 3  0x00 0x09 0xbf (OUI, Nintendo)
-// 1  0x00 (OUI subtype)
-//
-// 132  --- actual packet ---
-// 28  --- packet header ---
-// 4  0xa (frames count?)
-// 2  0x1
-// 2  0x1
-// 4  GGID (language code)
-// 2  0x0
-// 2  0x70
-// 2  0x28
-// 2  0xc
-// 2  checksum
-// 2  fragment index
-// 4  0x3a8 (payload length)
-//
-// 104  --- packet payload ---

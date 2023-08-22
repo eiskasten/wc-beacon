@@ -13,8 +13,16 @@ mod pcd;
 mod beacon;
 mod decrypt;
 
-type MacAddress = [u8; 6];
-
+/// The main entry point of the CLI application.
+///
+/// Parses command-line arguments using the `Cli` struct, and then executes
+/// the appropriate command based on the parsed input.
+///
+/// # Returns
+///
+/// Returns `Ok(())` if the program runs successfully, otherwise returns an
+/// error wrapped in a `Box<dyn Error>`.
+///
 fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
     match cli.command {
@@ -98,6 +106,39 @@ pub enum GGID {
     Korean = 0xc00018,
 }
 
+/// A simple MAC Address representation.
+type MacAddress = [u8; 6];
+
+/// Parses a MAC address string and returns a [MacAddress].
+///
+/// A MAC address is a unique identifier assigned to network interfaces.
+/// The format is six pairs of hexadecimal digits separated by colons.
+///
+/// # Arguments
+///
+/// * `value` - A string representing a MAC address.
+///
+/// # Returns
+///
+/// Returns a [Result] containing a [MacAddress] if the parsing is successful,
+/// or a [String] containing an error message if parsing fails.
+///
+/// # Examples
+///
+/// ```
+/// let mac_address_str = "00:1A:2B:3C:4D:5E";
+/// let result = mac_address_parser(mac_address_str);
+///
+/// match result {
+///     Ok(mac_address) => {
+///         println!("Parsed MAC address: {:?}", mac_address);
+///     }
+///     Err(error) => {
+///         eprintln!("Error parsing MAC address: {}", error);
+///     }
+/// }
+/// ```
+///
 fn mac_address_parser(value: &str) -> Result<MacAddress, String> {
     let parts: Vec<&str> = value.split(':').collect();
     if parts.len() != 6 {

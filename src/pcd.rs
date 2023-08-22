@@ -100,6 +100,16 @@ impl From<PCD<Partitioned>> for PCD<Extended> {
 }
 
 impl PCD<Extended> {
+    /// Calculates the checksum of the binding data.
+    ///
+    /// This method calculates the checksum of the concatenated binding data, which includes
+    /// the header, PGT, header duplicate, and card data.
+    ///
+    /// # Returns
+    ///
+    /// Returns a [Result] containing the calculated checksum as a [u16] if the calculation
+    /// is successful, otherwise returns a [String] containing an error message.
+    ///
     pub fn checksum(&self) -> Result<u16, String> {
         let state = &self.state;
         let mut checksum: u16 = 0;
@@ -117,6 +127,20 @@ impl PCD<Extended> {
         Ok(checksum)
     }
 
+    /// Encrypts the PCD data using the provided address.
+    ///
+    /// This method encrypts the PCD data using the provided Ethernet address and checksum,
+    /// transforming it into encrypted data.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - A reference to a [MacAddress] representing the Ethernet address.
+    ///
+    /// # Returns
+    ///
+    /// Returns a [Result] containing a new encrypted [PCD<Encrypted>] if the encryption
+    /// process is successful, otherwise returns a [String] containing an error message.
+    ///
     pub fn encrypt(self, address: &MacAddress) -> Result<PCD<Encrypted>, String> {
         let checksum = self.checksum()?;
         let state = self.state;
@@ -129,6 +153,8 @@ impl PCD<Extended> {
         Ok(PCD::new(sized_data))
     }
 
+    /// Go back to the [PCD<Partitioned>] state.
+    ///
     pub fn simplify(self) -> PCD<Partitioned> {
         PCD {
             state: Partitioned {
@@ -141,6 +167,14 @@ impl PCD<Extended> {
 }
 
 impl PCD<Encrypted> {
+    /// Construct from raw data.
+    ///
+    /// # Arguments
+    ///
+    /// * `data`: the data which later should be distributed or decrypted
+    ///
+    /// returns: [PCD<Encrypted>]
+    ///
     fn new(data: [u8; PCD_EXTENDED_LENGTH]) -> Self {
         PCD {
             state: Encrypted {
@@ -149,10 +183,30 @@ impl PCD<Encrypted> {
         }
     }
 
+    /// Fragment the encrypted data.
+    ///
+    /// Split the payload into the desired fragment sizes without the header.
+    ///
+    /// returns: The [PCD<Fragment>] state.
+    ///
     pub fn fragments(&self) -> Vec<PCDFragment> {
         self.state.data.chunks_exact(PCD_EXTENDED_LENGTH / (PCD_FRAGMENTS - 1)).map(|f| <[u8; PCD_FRAGMENT_LENGTH]>::try_from(f).unwrap()).collect()
     }
 
+    /// Decrypts the encrypted PCD data using the provided address and checksum.
+    ///
+    /// This method decrypts the encrypted PCD data using the provided Ethernet address
+    /// and checksum, returning the decrypted data as a [PCD<Extended>] instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - A reference to a [MacAddress] representing the Ethernet address.
+    /// * `checksum` - The checksum value used for decryption.
+    ///
+    /// # Returns
+    ///
+    /// Returns a [PCD<Extended>] instance containing the decrypted PCD data.
+    ///
     pub fn decrypt(self, address: &MacAddress, checksum: u16) -> PCD<Extended> {
         let key = key(address, checksum);
         let mut rc4 = Rc4::new(&key.into());
