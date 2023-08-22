@@ -37,7 +37,7 @@ Before you can use the application, you need to make a few preparations.
 > If you need an internet connection during the procedure, make sure your computer has an additional network interface.
 
 Please research for yourself how to achieve these requirements.
-However, for Linux users, a [script](scripts/unmanage.sh) is available for that.
+However, for Linux users, a [script](scripts/prepare-wifi.sh) is available for that.
 Just run it using: `sudo ./scripts/unmanage.sh <device>`.
 
 The restriction for channel 7 may be removed in the future.
