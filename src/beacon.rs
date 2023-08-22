@@ -112,7 +112,7 @@ fn packet(frames_count: u32, fragment_index: u16, checksum: u16, payload_length:
         &0x28u16.to_le_bytes(),
         &0xcu16.to_le_bytes(),
         &checksum.to_le_bytes(),
-        &(if fragment_index == (frames_count - 1) as u16 { 0xff } else { fragment_index }).to_le_bytes(),
+        &(if fragment_index == (frames_count - 1) as u16 { 0xffff } else { fragment_index }).to_le_bytes(),
         &payload_length.to_le_bytes(),
         &packet_payload
     ].concat()
