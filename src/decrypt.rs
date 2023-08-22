@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;

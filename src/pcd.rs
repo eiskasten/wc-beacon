@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+
 use rc4::{KeyInit, Rc4, StreamCipher};
 
 use crate::MacAddress;
