@@ -1,7 +1,12 @@
+use std::{fs, thread};
+use std::error::Error;
+use std::path::PathBuf;
+use std::time::Duration;
+
 use crc::{Crc, CRC_32_ISO_HDLC};
 
 use crate::{GGID, MacAddress};
-use crate::pcd::{Encrypted, PCD, PCD_EXTENDED_LENGTH, PCDFragment, PCDHeader, zero_pad};
+use crate::pcd::{Encrypted, Extended, Partitioned, PCD, PCD_EXTENDED_LENGTH, PCDFragment, PCDHeader, Raw, zero_pad};
 
 pub struct BeaconFrameGenerator {
     beacon_frames: Vec<Vec<u8>>,
@@ -12,6 +17,25 @@ pub struct BeaconFrameGenerator {
 const HEAD_LENGTH: usize = RADIO_HEAD.len() + BEACON_FRAME.len() + 2 * 6;
 const ADDRESS_OFFSET: usize = RADIO_HEAD.len() + BEACON_FRAME.len();
 const CRC_32: Crc<u32> = Crc::<u32>::new(&CRC_32_ISO_HDLC);
+
+pub fn distribute(pcd: PathBuf, region: GGID, device: String, address: MacAddress, interval: u64) -> Result<(), Box<dyn Error>> {
+    let broadcast_addr: MacAddress = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
+    eprintln!("Use device '{}' with ethernet address '{:02x?}' and broadcast address '{:02x?}'", device, address, broadcast_addr);
+    let mut cap = pcap::Capture::from_device(device.as_str())?.open()?;
+    let pcd: PCD<Raw> = PCD::try_from(fs::read(pcd)?.as_slice())?;
+    let partitioned: PCD<Partitioned> = pcd.into();
+    let header = partitioned.header();
+    let extended: PCD<Extended> = partitioned.into();
+    let checksum = extended.checksum()?;
+    eprintln!("Wondercard has checksum {:04x}", checksum);
+    let encrypted = extended.encrypt(&address)?;
+    let generator = BeaconFrameGenerator::new(address, region, &encrypted, header, checksum);
+    for packet in generator {
+        cap.sendpacket(packet.as_slice())?;
+        thread::sleep(Duration::from_micros(interval));
+    }
+    Ok(())
+}
 
 impl BeaconFrameGenerator {
     pub fn new(address: MacAddress, region: GGID, pcd: &PCD<Encrypted>, header: PCDHeader, checksum: u16) -> Self {
