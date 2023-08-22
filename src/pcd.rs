@@ -48,9 +48,25 @@ impl<'a> TryFrom<&'a [u8]> for PCD<Raw> {
     }
 }
 
+impl<'a> TryFrom<&'a [u8]> for PCD<Encrypted> {
+    type Error = String;
+
+    fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
+        let sized_value: [u8; PCD_EXTENDED_LENGTH] = <[u8; PCD_EXTENDED_LENGTH]>::try_from(value).map_err(|_| format!("PCD size needs to be {}, but was: {}", PCD_EXTENDED_LENGTH, value.len()))?;
+        Ok(PCD { state: Encrypted { data: sized_value } })
+    }
+}
+
 impl PCD<Partitioned> {
     pub fn header(&self) -> PCDHeader {
         self.state.header
+    }
+    pub fn data(&self) -> Vec<u8> {
+        [
+            self.state.pgt.as_slice(),
+            &self.state.header,
+            &self.state.card_data,
+        ].concat()
     }
 }
 
@@ -109,6 +125,16 @@ impl PCD<Extended> {
         let imm_data: &[u8] = data;
         let sized_data: [u8; PCD_EXTENDED_LENGTH] = <[u8; PCD_EXTENDED_LENGTH]>::try_from(imm_data).map_err(|_| format!("Encrypted data length is {} instead of {}", data.len(), PCD_LENGTH))?;
         Ok(PCD::new(sized_data))
+    }
+
+    pub fn simplify(self) -> PCD<Partitioned> {
+        PCD {
+            state: Partitioned {
+                pgt: self.state.pgt,
+                header: self.state.header,
+                card_data: self.state.card_data,
+            }
+        }
     }
 }
 
