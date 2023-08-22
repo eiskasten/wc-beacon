@@ -124,6 +124,27 @@ impl PCD<Encrypted> {
     pub fn fragments(&self) -> Vec<PCDFragment> {
         self.state.data.chunks_exact(PCD_EXTENDED_LENGTH / (PCD_FRAGMENTS - 1)).map(|f| <[u8; PCD_FRAGMENT_LENGTH]>::try_from(f).unwrap()).collect()
     }
+
+    pub fn decrypt(self, address: &MacAddress, checksum: u16) -> PCD<Extended> {
+        let key = key(address, checksum);
+        let mut rc4 = Rc4::new(&key.into());
+        let mut data = self.state.data;
+        rc4.apply_keystream(data.as_mut());
+        let header: [u8; PCD_HEADER_LENGTH] = [0; PCD_HEADER_LENGTH];
+        let pgt: [u8; PCD_PGT_LENGTH] = [0; PCD_PGT_LENGTH];
+        let card_data: [u8; PCD_CARD_DATA_LENGTH] = [0; PCD_CARD_DATA_LENGTH];
+        header.copy_from_slice(&data[0..PCD_HEADER_LENGTH]);
+        pgt.copy_from_slice(&data[PCD_HEADER_LENGTH..PCD_PGT_LENGTH + PCD_HEADER_LENGTH]);
+        card_data.copy_from_slice(&data[2 * PCD_HEADER_LENGTH + PCD_PGT_LENGTH..PCD_CARD_DATA_LENGTH + PCD_PGT_LENGTH + 2 * PCD_HEADER_LENGTH]);
+        PCD {
+            state: Extended {
+                header,
+                pgt,
+                header_duplicate: header,
+                card_data,
+            }
+        }
+    }
 }
 
 fn key(address: &MacAddress, checksum: u16) -> [u8; 8] {
