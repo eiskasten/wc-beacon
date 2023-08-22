@@ -5,23 +5,28 @@ use std::result::Result;
 use std::time::Duration;
 
 use crate::beacon::BeaconFrameGenerator;
+use crate::decrypt::decrypt;
 use crate::GGID::{English, French, German, Italian, Japanese, Korean, Spanish};
-use crate::pcd::{Extended, Partitioned, PCD};
+use crate::pcd::{Extended, Partitioned, PCD, Raw};
 
 mod pcd;
 mod beacon;
+mod decrypt;
 
 type MacAddress = [u8; 6];
 
-
 fn main() -> Result<(), Box<dyn Error>> {
+    decrypt()
+}
+
+fn main2() -> Result<(), Box<dyn Error>> {
     let dev_name = "wlp0s20f3";
-    let dev_addr: MacAddress = [0x94, 0xe6, 0xf7, 0x06, 0xcf, 0x6b];
+    let dev_addr: MacAddress = [0xa4, 0xc0, 0xe1, 0x6e, 0x76, 0x80];
     let src_addr: MacAddress = [0xa4, 0xc0, 0xe1, 0x6e, 0x76, 0x80];
     let broadcast_addr: MacAddress = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
     eprintln!("Use device '{}' with ethernet address '{:02x?}' and broadcast address '{:02x?}'", dev_name, dev_addr, broadcast_addr);
     let mut cap = pcap::Capture::from_device(dev_name)?.open()?;
-    let pcd = PCD::try_from(fs::read("008-dp-deoxys.pcd")?.as_slice())?;
+    let pcd: PCD<Raw> = PCD::try_from(fs::read("008-dp-deoxys.pcd")?.as_slice())?;
     let partitioned: PCD<Partitioned> = pcd.into();
     let header = partitioned.header();
     let extended: PCD<Extended> = partitioned.into();
