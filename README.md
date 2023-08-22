@@ -38,7 +38,7 @@ Before you can use the application, you need to make a few preparations.
 
 Please research for yourself how to achieve these requirements.
 However, for Linux users, a [script](scripts/prepare-wifi.sh) is available for that.
-Just run it using: `sudo ./scripts/unmanage.sh <device>`.
+Just run it using: `sudo ./scripts/prepare-wifi.sh <device>`.
 
 The restriction for channel 7 may be removed in the future.
 
@@ -56,6 +56,8 @@ cargo run -- dist -p membercard.pcd -r en -d wlp0s20f3
 # Decrypt encrypted membercard
 cargo run -- dec -e membercard.pcd.enc -c 1cb4 -a a4:c0:e1:6e:76:80 -p decryped.pcd
 ```
+
+It might be possible that commands which require root/sudo must be run with `sudo ./target/release/wc-beacon <arguments>` instead of `sudo cargo run -- <arguments>`.
 
 For further options, run `cargo run -- dist --help` and `cargo run -- dec --help`.
 
