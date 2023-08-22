@@ -4,11 +4,26 @@
 
 Wondercard Beacon is a command-line application to distribute Pokémon generation IV wondercards over Wi-Fi using a
 computer.
+It is just a Pokémon Distribution Rom, but for the PC.
 
 ## Features
 
 - Distributing wondercards via Wi-Fi
 - Decrypting wondercards dumped from distributions
+
+## Differences to the Pokémon Distribution Rom
+
+advantages:
+
+- Does not require an additional Nintendo DS or a flashcart
+- No patching of roms is required, thus making interchanging the wondercard much quicker
+- Configuring (e.g. region) does not require any patching
+- Fully legal since no roms which are intellectual property of Nintendo are involved
+
+disadvantages:
+
+- Does not behave exactly like the Pokémon Distribution Rom
+- May not be compatible with all Wi-Fi chips
 
 ## Installation
 
@@ -57,7 +72,8 @@ cargo run -- dist -p membercard.pcd -r en -d wlp0s20f3
 cargo run -- dec -e membercard.pcd.enc -c 1cb4 -a a4:c0:e1:6e:76:80 -p decryped.pcd
 ```
 
-It might be possible that commands which require root/sudo must be run with `sudo ./target/release/wc-beacon <arguments>` instead of `sudo cargo run -- <arguments>`.
+It might be possible that commands which require root/sudo must be run
+with `sudo ./target/release/wc-beacon <arguments>` instead of `sudo cargo run -- <arguments>`.
 
 For further options, run `cargo run -- dist --help` and `cargo run -- dec --help`.
 
