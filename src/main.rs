@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use std::error::Error;
+use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::result::Result;
 
@@ -104,6 +105,21 @@ pub enum GGID {
     /// Korean
     #[value(name = "ko")]
     Korean = 0xc00018,
+}
+
+impl Display for GGID {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(
+        match self {
+            GGID::Japanese => "jp",
+            GGID::English => "en",
+            GGID::French => "fr",
+            GGID::German => "de",
+            GGID::Italian => "it",
+            GGID::Spanish => "es",
+            GGID::Korean => "ko",
+        })
+    }
 }
 
 /// A simple MAC Address representation.

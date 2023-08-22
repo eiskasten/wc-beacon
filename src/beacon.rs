@@ -47,6 +47,7 @@ pub fn distribute(pcd: PathBuf, region: GGID, device: String, address: MacAddres
     let broadcast_addr: MacAddress = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
     eprintln!("Use device '{}' with ethernet address '{:02x?}' and broadcast address '{:02x?}'", device, address, broadcast_addr);
     let mut cap = pcap::Capture::from_device(device.as_str())?.open()?;
+    eprintln!("Open wondercard file '{}'", pcd.as_path().display());
     let pcd: PCD<Raw> = PCD::try_from(fs::read(pcd)?.as_slice())?;
     let partitioned: PCD<Partitioned> = pcd.into();
     let header = partitioned.header();
@@ -55,6 +56,7 @@ pub fn distribute(pcd: PathBuf, region: GGID, device: String, address: MacAddres
     eprintln!("Wondercard has checksum {:04x}", checksum);
     let encrypted = extended.encrypt(&address)?;
     let generator = BeaconFrameGenerator::new(address, region, &encrypted, header, checksum);
+    eprintln!("Distributing in {} µs intervals for region '{}'...", interval, region);
     for packet in generator {
         cap.sendpacket(packet.as_slice())?;
         thread::sleep(Duration::from_micros(interval));
@@ -198,6 +200,23 @@ const WIRELESS_MANAGEMENT: [u8; 32] = [
 ///
 /// Returns a [Vec<u8>] containing the constructed packet.
 ///
+fn packet(frames_count: u32, fragment_index: u16, checksum: u16, payload_length: u32, packet_payload: PCDFragment, ggid: GGID) -> Vec<u8> {
+    [
+        frames_count.to_le_bytes().as_slice(),
+        &0x1u16.to_le_bytes(),
+        &0x1u16.to_le_bytes(),
+        &(ggid as u32).to_le_bytes(),
+        &0x0u16.to_le_bytes(),
+        &0x70u16.to_le_bytes(),
+        &0x28u16.to_le_bytes(),
+        &0xcu16.to_le_bytes(),
+        &checksum.to_le_bytes(),
+        &(if fragment_index == (frames_count - 1) as u16 { 0xffff } else { fragment_index }).to_le_bytes(),
+        &payload_length.to_le_bytes(),
+        &packet_payload
+    ].concat()
+}
+
 fn wireless_management(packet: Vec<u8>) -> Vec<u8> {
     [
         WIRELESS_MANAGEMENT.as_slice(),
