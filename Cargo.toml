@@ -11,6 +11,13 @@ pcap = "1.1.0"
 crc = "3.0.1"
 rc4 = "0.1.0"
 clap = { version = "4.3.23", features = ["derive"] }
+utf16 = { path = "utf16" }
+
+[build-dependencies]
+utf16 = { path = "utf16" }
+
+[workspace]
+members = ["utf16"]
 
 [profile.release]
 opt-level = "s"

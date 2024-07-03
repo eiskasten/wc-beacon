@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+extern crate core;
+
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
@@ -13,6 +15,10 @@ use crate::decrypt::decrypt;
 mod pcd;
 mod beacon;
 mod decrypt;
+mod pokestr;
+pub mod pokestrmap {
+    include!(concat!(env!("OUT_DIR"), "/pokestrmap.rs"));
+}
 
 /// The main entry point of the CLI application.
 ///

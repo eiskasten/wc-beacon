@@ -397,6 +397,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "301abaae475aa91687eb82514b328ab47a211a533026cb25fc3e519b86adfc3c"
 
 [[package]]
+name = "utf16"
+version = "0.1.0"
+
+[[package]]
 name = "utf8parse"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -416,6 +420,7 @@ dependencies = [
  "crc",
  "pcap",
  "rc4",
+ "utf16",
 ]
 
 [[package]]
