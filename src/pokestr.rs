@@ -46,14 +46,26 @@ impl TryFrom<&Gen4Str> for String {
     }
 }
 
+const HARD_CODED_MAPPINGS: [(u16, Utf16Grapheme); 1] = [(0xe000, Utf16Grapheme::Bmp(0x0a))];
+
 /// Look up the corresponding UTF16 grapheme to a pokémon gen iv character.
 /// Returns [None] when the character map does not contain such a character.
 fn to_utf16(geniv_char: u16) -> Option<&'static Utf16Grapheme> {
+    for m in &HARD_CODED_MAPPINGS {
+        if m.0 == geniv_char {
+            return Some(&m.1);
+        }
+    }
     CHARACTER_MAP_BY_GENIV.get(usize::from(geniv_char))
 }
 
 /// Look up the corresponding pokémon gen iv character to a UTF16 grapheme.
 /// Returns [None] when the character map does not contain such a character.
 fn to_geniv_char(grapheme: &Utf16Grapheme) -> Option<u16> {
+    for m in &HARD_CODED_MAPPINGS {
+        if m.1 == *grapheme {
+            return Some(m.0);
+        }
+    }
     CHARACTER_MAP_BY_UTF16.binary_search_by(|(u, _)| u.cmp(grapheme)).map(|i| CHARACTER_MAP_BY_UTF16[i].1).ok()
 }
