@@ -11,11 +11,14 @@ use clap::{Parser, Subcommand, ValueEnum};
 
 use crate::beacon::distribute;
 use crate::decrypt::decrypt;
+use crate::info::info;
 
 mod pcd;
 mod beacon;
 mod decrypt;
 mod pokestr;
+mod info;
+
 pub mod pokestrmap {
     include!(concat!(env!("OUT_DIR"), "/pokestrmap.rs"));
 }
@@ -35,7 +38,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     match cli.command {
         Command::Distribute { pcd, region, device, address, interval } =>
             distribute(pcd, region, device, address.unwrap_or([0xa4, 0xc0, 0xe1, 0x6e, 0x76, 0x80]), interval),
-        Command::Decrypt { epcd, checksum, address, pcd } => decrypt(epcd, checksum, address, pcd)
+        Command::Decrypt { epcd, checksum, address, pcd } => decrypt(epcd, checksum, address, pcd),
+        Command::Info { pcd } => info(pcd)
     }
 }
 
@@ -83,6 +87,13 @@ enum Command {
         #[arg(short, long, value_name = "PCD_FILE")]
         pcd: PathBuf,
     },
+    /// Show information about a given pcd file
+    #[command(name = "info")]
+    Info {
+        /// The PCD file to show the information about
+        #[arg(short, long, value_name = "PCD_FILE")]
+        pcd: PathBuf
+    },
 }
 
 /// Region codes.
@@ -116,15 +127,15 @@ pub enum GGID {
 impl Display for GGID {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(
-        match self {
-            GGID::Japanese => "jp",
-            GGID::English => "en",
-            GGID::French => "fr",
-            GGID::German => "de",
-            GGID::Italian => "it",
-            GGID::Spanish => "es",
-            GGID::Korean => "ko",
-        })
+            match self {
+                GGID::Japanese => "jp",
+                GGID::English => "en",
+                GGID::French => "fr",
+                GGID::German => "de",
+                GGID::Italian => "it",
+                GGID::Spanish => "es",
+                GGID::Korean => "ko",
+            })
     }
 }
 

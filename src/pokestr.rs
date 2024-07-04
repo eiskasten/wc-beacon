@@ -1,10 +1,22 @@
+// SPDX-License-Identifier: GPL-3.0-only
+
 use crate::pokestrmap::{CHARACTER_MAP_BY_GENIV, CHARACTER_MAP_BY_UTF16};
 use std::string::String;
 use utf16::Utf16Grapheme;
 
+pub const STRING_TERMINATOR: u16 = 0xffff;
 #[derive(Debug)]
 pub struct Gen4Str {
     vec: Vec<u16>,
+}
+
+
+impl Gen4Str {
+    pub fn new(data: Vec<u16>) -> Self {
+        Self {
+            vec: data
+        }
+    }
 }
 
 impl TryFrom<&String> for Gen4Str {
