@@ -27,11 +27,11 @@ pub enum Utf16Grapheme {
 pub fn str_to_utf16_graphemes(str: &str) -> Vec<Utf16Grapheme> {
     let characters: Vec<u16> = str.encode_utf16().collect();
     let mut graphemes: Vec<Utf16Grapheme> = Vec::with_capacity(characters.len());
-    for i in 0..characters.len() - 1 {
-        if characters[i] ^ UTF16_HIGH_SURROGATE_MASK <= UTF16_SURROGATE_REMAINDER {
-            graphemes.push(Utf16Grapheme::Comp(characters[i], characters[i + 1]));
+    for i in 1..characters.len() {
+        if characters[i - 1] ^ UTF16_HIGH_SURROGATE_MASK <= UTF16_SURROGATE_REMAINDER {
+            graphemes.push(Utf16Grapheme::Comp(characters[i - 1], characters[i]));
         } else {
-            graphemes.push(Utf16Grapheme::Bmp(characters[i]));
+            graphemes.push(Utf16Grapheme::Bmp(characters[i - 1]));
         }
     }
     if let Some(&c) = characters.last() {

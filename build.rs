@@ -15,7 +15,7 @@ fn main() {
 
     let reader = BufReader::new(File::open(MAP_PATH).expect("Character map for generation iv"));
     let mapping: HashMap<u16, Utf16Grapheme> = reader.lines().filter_map(|r| {
-        if let Ok(s) = r { if s.starts_with("0x") { Some(s) } else { None } } else { None }
+        if let Ok(s) = r { if s.starts_with("0x") && s.len() >= 8 { Some(s) } else { None } } else { None }
     }).map(|s| (u16::from_str_radix(&s[2..6], 16).expect(&format!("Invalid number: 0x{}", &s[2..6])), str_to_utf16_graphemes(&s[7..]).remove(0))).collect();
 
     let mut writer = LineWriter::new(File::create(path).unwrap());
