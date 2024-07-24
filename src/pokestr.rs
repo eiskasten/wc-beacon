@@ -7,17 +7,9 @@ use utf16::Utf16Grapheme;
 pub const STRING_TERMINATOR: u16 = 0xffff;
 #[derive(Debug)]
 pub struct Gen4Str {
-    vec: Vec<u16>,
+    pub vec: Vec<u16>,
 }
 
-
-impl Gen4Str {
-    pub fn new(data: Vec<u16>) -> Self {
-        Self {
-            vec: data
-        }
-    }
-}
 
 impl TryFrom<&String> for Gen4Str {
     type Error = Utf16Grapheme;

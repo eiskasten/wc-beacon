@@ -2,8 +2,9 @@
 
 use std::cmp::min;
 use std::fmt::{Display, Formatter};
+use std::ops::BitOr;
 use rc4::{KeyInit, Rc4, StreamCipher};
-
+use clap::ValueEnum;
 use crate::MacAddress;
 use crate::pcd::CardType::{Accessory, AzureFlute, Item, ManaphyEgg, MemberCard, OaksLetter, Pokemon, PokemonEgg, PoketchApp, PokewalkerArea, Rule, Seal, Secretkey, Unknown};
 use crate::pcd::Game::{Diamond, HeartGold, Pearl, Platinum, SoulSilver};
@@ -19,6 +20,7 @@ pub const PCD_FRAGMENTS: usize = 0x0a;
 pub const PCD_FRAGMENT_LENGTH: usize = PCD_EXTENDED_LENGTH / (PCD_FRAGMENTS - 1);
 
 /// Attribute const offsets are absolute to pcd raw data
+pub const PCD_CARD_TYPE_OFFSET: usize = 0x0;
 pub const PCD_TITLE_OFFSET: usize = 0x104;
 
 pub const PCD_CARD_ID_OFFSET: usize = 0x150;
@@ -42,7 +44,7 @@ pub type PCDFragment = [u8; PCD_FRAGMENT_LENGTH];
 pub type PCDHeader = [u8; PCD_HEADER_LENGTH];
 
 pub struct PCD<State> {
-    state: State,
+    pub(crate) state: State,
 }
 
 pub struct Raw {
@@ -67,7 +69,7 @@ pub struct Extended {
 }
 
 #[repr(u8)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, ValueEnum)]
 pub enum CardType {
     None = 0x0,
     Pokemon = 0x1,
@@ -109,7 +111,7 @@ impl TryFrom<u8> for CardType {
 }
 
 #[repr(u16)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, ValueEnum)]
 pub enum Game {
     Diamond = 1 << 2,
     Pearl = 1 << 3,
@@ -125,6 +127,11 @@ impl Game {
         games.iter().filter(|&g| *g as u16 & n > 0).map(|g| *g).collect()
     }
 }
+
+fn serialize_games(games: &[Game]) -> u16 {
+    games.iter().fold(0, |a, &g| a.bitor(g as u16))
+}
+
 
 pub struct Deserialized {
     pub title: String,
@@ -147,12 +154,34 @@ impl<'a> TryFrom<&'a [u8]> for PCD<Raw> {
     }
 }
 
+
 impl<'a> TryFrom<&'a [u8]> for PCD<Encrypted> {
     type Error = String;
 
     fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
         let sized_value: [u8; PCD_EXTENDED_LENGTH] = <[u8; PCD_EXTENDED_LENGTH]>::try_from(value).map_err(|_| format!("PCD size needs to be {}, but was: {}", PCD_EXTENDED_LENGTH, value.len()))?;
         Ok(PCD { state: Encrypted { data: sized_value } })
+    }
+}
+
+impl From<&PCD<Partitioned>> for PCD<Raw> {
+    fn from(value: &PCD<Partitioned>) -> Self {
+        let state = &value.state;
+        let mut data = [0; PCD_LENGTH];
+        data[0..PCD_PGT_LENGTH].copy_from_slice(&state.pgt);
+        data[PCD_PGT_LENGTH..PCD_HEADER_LENGTH + PCD_PGT_LENGTH].copy_from_slice(&state.header);
+        data[PCD_HEADER_LENGTH + PCD_PGT_LENGTH..PCD_CARD_DATA_LENGTH + PCD_HEADER_LENGTH + PCD_PGT_LENGTH].copy_from_slice(&state.card_data);
+        PCD {
+            state: Raw {
+                data
+            }
+        }
+    }
+}
+
+impl Into<[u8; PCD_LENGTH]> for PCD<Raw> {
+    fn into(self) -> [u8; PCD_LENGTH] {
+        self.state.data
     }
 }
 
@@ -207,13 +236,63 @@ impl PCD<Partitioned> {
 }
 
 fn first_str(data: &[u8], max_len: usize) -> Gen4Str {
-    let chunks = data.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]]));
+    let chunks = data.chunks_exact(2).map(|c| u16::from_le_bytes(c.try_into().expect("string must have even u8s")));
     let mut chunks_clone = chunks.clone();
     let len = min(max_len, chunks_clone.position(|e| e == STRING_TERMINATOR).unwrap_or(max_len)).checked_sub(1).unwrap_or(0);
 
     let str_vec = chunks.take(len).collect();
 
-    Gen4Str::new(str_vec)
+    Gen4Str { vec: str_vec }
+}
+
+impl PCD<Deserialized> {
+    pub fn new() -> PCD<Deserialized> {
+        PCD {
+            state: Deserialized {
+                title: "".to_string(),
+                card_type: CardType::None,
+                card_id: 0,
+                games: vec![],
+                comment: "".to_string(),
+                redistribution: 0,
+                icons: (0, 0, 0),
+                pgt: [0x00; PCD_PGT_LENGTH],
+                received: 0,
+            }
+        }
+    }
+
+    pub fn serialize(&self) -> PCD<Partitioned> {
+        let des = &self.state;
+        let mut header = [0x00u8; PCD_HEADER_LENGTH];
+        let mut card_data = [0x00u8; PCD_CARD_DATA_LENGTH];
+        let mut pgt = des.pgt.clone();
+
+        pgt[PCD_CARD_TYPE_OFFSET] = des.card_type as u8;
+
+        put_str(&mut header, &des.title, PCD_TITLE_MAX_LENGTH);
+        header[PCD_CARD_ID_OFFSET..PCD_CARD_ID_OFFSET + 2].copy_from_slice(&des.card_id.to_le_bytes());
+        header[PCD_GAMES_OFFSET..PCD_GAMES_OFFSET + 2].copy_from_slice(&serialize_games(&des.games).to_be_bytes());
+
+        put_str(&mut card_data, &des.comment, PCD_COMMENT_MAX_LENGTH);
+        card_data[PCD_ICONS_OFFSET - PCD_COMMENT_OFFSET..PCD_ICONS_OFFSET - PCD_COMMENT_OFFSET + 2].copy_from_slice(&des.received.to_le_bytes());
+        card_data[PCD_REDISTRIBUTION_OFFSET - PCD_COMMENT_OFFSET] = des.redistribution;
+
+        PCD {
+            state: Partitioned {
+                pgt,
+                card_data,
+                header,
+            }
+        }
+    }
+}
+
+fn put_str(dest: &mut [u8], str: &String, max_len: usize) {
+    let enc: Vec<u16> = Gen4Str::try_from(str).expect("should be validated before call").vec;
+    let len = min(enc.len(), max_len - 1) * 2;
+    dest[..len].copy_from_slice(&enc.iter().flat_map(|c| c.to_le_bytes()).collect::<Vec<u8>>());
+    dest[len..max_len * 2].copy_from_slice(&vec![0xffu8; max_len * 2 - len])
 }
 
 impl Display for PCD<Deserialized> {
@@ -292,7 +371,7 @@ impl PCD<Extended> {
         rc4.apply_keystream(data.as_mut());
         let imm_data: &[u8] = data;
         let sized_data: [u8; PCD_EXTENDED_LENGTH] = <[u8; PCD_EXTENDED_LENGTH]>::try_from(imm_data).map_err(|_| format!("Encrypted data length is {} instead of {}", data.len(), PCD_LENGTH))?;
-        Ok(PCD::new(sized_data))
+        Ok(PCD::<Encrypted>::new(sized_data))
     }
 
     /// Go back to the [PCD<Partitioned>] state.
