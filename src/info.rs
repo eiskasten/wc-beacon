@@ -5,7 +5,9 @@ use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
+use crate::error::err_reason;
 use crate::pcd::{CardType, Deserialized, Game, Partitioned, PCD, PCD_LENGTH, Raw};
+
 
 pub fn info(pcd: PathBuf) -> Result<(), Box<dyn Error>> {
     let pcd: PCD<Raw> = PCD::try_from(fs::read(pcd)?.as_slice())?;
@@ -17,8 +19,9 @@ pub fn info(pcd: PathBuf) -> Result<(), Box<dyn Error>> {
 
 pub fn set(title: Option<String>, card_type: Option<CardType>, card_id: Option<u16>, games: Option<Vec<Game>>, comment: Option<String>, redistribution: Option<u8>, icons: Option<Vec<u16>>, pgt: Option<PathBuf>, received: Option<u16>, pcd: Option<PathBuf>, output: PathBuf) -> Result<(), Box<dyn Error>> {
     let mut pcd = if let Some(f) = pcd {
-        let raw: PCD<Raw> = PCD::try_from(fs::read(f)?.as_slice())?;
-        let parts: PCD<Partitioned> = raw.try_into().unwrap();
+        let data = fs::read(f).map_err(|e| err_reason("Unable to read pcd file", e))?;
+        let raw: PCD<Raw> = PCD::try_from(data.as_slice())?;
+        let parts: PCD<Partitioned> = PCD::from(raw);
         parts.deserialize()
     } else {
         PCD::<Deserialized>::new()
@@ -57,15 +60,15 @@ pub fn set(title: Option<String>, card_type: Option<CardType>, card_id: Option<u
     }
 
     if let Some(p) = pgt {
-        let mut f = File::open(p).expect("Unable to open pgt file");
-        f.read_exact(&mut pcd.state.pgt).expect("Unable to read pgt");
+        let mut f = File::open(p).map_err(|e| err_reason("Unable to read pgt", e))?;
+        f.read_exact(&mut pcd.state.pgt).map_err(|e| err_reason("Unable to read pgt", e))?;
     }
 
     let pcd: PCD<Raw> = (&pcd.serialize()).try_into()?;
     let pcd_data: [u8; PCD_LENGTH] = pcd.into();
 
     let mut f = File::create(output)?;
-    f.write(&pcd_data).expect("Unable to write pcd file");
+    f.write(&pcd_data).map_err(|e| err_reason("Unable to write pcd file", e))?;
 
     Ok(())
 }

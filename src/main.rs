@@ -19,6 +19,7 @@ mod beacon;
 mod decrypt;
 mod pokestr;
 mod info;
+mod error;
 
 pub mod pokestrmap {
     include!(concat!(env!("OUT_DIR"), "/pokestrmap.rs"));
