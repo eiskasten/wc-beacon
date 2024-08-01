@@ -235,6 +235,13 @@ impl PCD<Partitioned> {
     }
 }
 
+/// Creates a [Gen4Str] from `data` with at max length `max_len`.
+/// The length refers to representation in [Gen4Str] but not the amount of elements in `data`.
+///
+/// If a [STRING_TERMINATOR] occurs within the `max_len`, the resulting [Gen4Str] will stop there excluding the termination.
+///
+/// ## Panic
+/// Since for every character in [Gen4Str] two bytes are required, this will panic on odd `data` length.
 fn first_str(data: &[u8], max_len: usize) -> Gen4Str {
     let chunks = data.chunks_exact(2).map(|c| u16::from_le_bytes(c.try_into().expect("string must have even u8s")));
     let mut chunks_clone = chunks.clone();
