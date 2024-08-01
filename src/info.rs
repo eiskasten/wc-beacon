@@ -62,6 +62,10 @@ pub fn set(title: Option<String>, card_type: Option<CardType>, card_id: Option<u
     if let Some(p) = pgt {
         let mut f = File::open(p).map_err(|e| err_reason("Unable to read pgt", e))?;
         f.read_exact(&mut pcd.state.pgt).map_err(|e| err_reason("Unable to read pgt", e))?;
+        match f.read(&mut [0]) {
+            Ok(len) => if len > 0 { eprintln!("warning: provided pgt file is bigger than expected and will be truncated") }
+            Err(e) => eprintln!("warning: unable to check if pgt file is too long: {}", e)
+        }
     }
 
     let pcd: PCD<Raw> = (&pcd.serialize()).try_into()?;
