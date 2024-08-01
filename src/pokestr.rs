@@ -8,7 +8,7 @@ pub const STRING_TERMINATOR: u16 = 0xffff;
 pub const ESCAPE_CHAR: char = '\\';
 pub const ESCAPE_CODEPOINT_CHAR: char = 'x';
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Gen4Str {
     pub vec: Vec<u16>,
 }
@@ -48,10 +48,10 @@ impl TryFrom<&String> for Gen4Str {
 
                         let mut digits = [0x0u16; 4];
 
-                        for j in 0..4 {
+                        for j in 0..digits.len() {
                             let g = graphemes_escaped[i - j];
                             match g {
-                                Utf16Grapheme::Bmp(c) => digits[j] = c,
+                                Utf16Grapheme::Bmp(c) => digits[digits.len() - j - 1] = c,
                                 _ => return Err((i - j, g))
                             }
                         }
@@ -188,5 +188,31 @@ mod tests {
             idx: 1,
             char: unknown_char0,
         }));
+    }
+
+    #[test]
+    fn gen4_parse_escaped() {
+        let (g, gen4_c) = CHARACTER_MAP_BY_UTF16[18];
+
+        if let Utf16Grapheme::Bmp(c) = g {
+            let hello = format!("Hell\\x{:04x}o!", gen4_c);
+
+            let mut utf16: Vec<u16> = "Hello!".encode_utf16().collect();
+
+            utf16.insert(4, c);
+
+            let mut utf16_mapped = Vec::with_capacity(utf16.len());
+
+            for c in utf16 {
+                eprintln!("{:04x}", c);
+                utf16_mapped.push(to_geniv_char(&Utf16Grapheme::Bmp(c)).unwrap())
+            }
+
+            let hello_gen4 = Gen4Str { vec: utf16_mapped };
+
+            assert_eq!(hello_gen4, Gen4Str::try_from(&hello).unwrap());
+        } else {
+            panic!("Utf16 character is composed")
+        }
     }
 }
