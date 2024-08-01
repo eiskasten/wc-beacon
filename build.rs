@@ -4,12 +4,16 @@ use std::io::{BufRead, BufReader, LineWriter, Write};
 use utf16::{str_to_utf16_graphemes, Utf16Grapheme};
 
 const MAP_PATH: &str = "gen-iv-character-map.txt";
+const SPECIES_PATH: &str = "species.txt";
 const CHARACTERS: u16 = 0x1fe;
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed={}", MAP_PATH);
-
+    write_char_map();
+    write_species_map();
+}
+fn write_char_map() {
     let out_dir = std::env::var_os("OUT_DIR").unwrap();
     let path = std::path::Path::new(&out_dir).join("pokestrmap.rs");
 
@@ -41,5 +45,19 @@ fn main() {
             write!(writer, "(Utf16Grapheme::Comp({},{}),{}),\n", c0, c1, pc).unwrap();
         }
     }
+    write!(writer, "];").unwrap();
+}
+
+fn write_species_map() {
+    let out_dir = std::env::var_os("OUT_DIR").unwrap();
+    let path = std::path::Path::new(&out_dir).join("speciesmap.rs");
+    let reader = BufReader::new(File::open(SPECIES_PATH).expect("Species ordered by pokedex number"));
+
+    let pokedex: Vec<String> = reader.lines().map(|r| r.expect("Unable to read species")).collect();
+    let mut writer = LineWriter::new(File::create(path).unwrap());
+    write!(writer, "pub const SPECIES_MAP: [&str; {}] = [\n", pokedex.len()).unwrap();
+
+    pokedex.iter().for_each(|s| write!(writer, "\"{}\",\n", s).expect("Cannot write species"));
+
     write!(writer, "];").unwrap();
 }
