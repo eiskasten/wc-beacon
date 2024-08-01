@@ -5,8 +5,8 @@ use std::string::String;
 use utf16::Utf16Grapheme;
 
 pub const STRING_TERMINATOR: u16 = 0xffff;
-pub const ESCAPE_CHAR: &str = "\\";
-pub const ESCAPE_CODEPOINT: &str = "\\x";
+pub const ESCAPE_CHAR: char = '\\';
+pub const ESCAPE_CODEPOINT_CHAR: char = 'x';
 
 #[derive(Debug)]
 pub struct Gen4Str {
@@ -15,14 +15,73 @@ pub struct Gen4Str {
 
 
 impl TryFrom<&String> for Gen4Str {
-    type Error = Utf16Grapheme;
+    type Error = (usize, Utf16Grapheme);
 
     fn try_from(value: &String) -> Result<Self, Self::Error> {
-        let graphemes = utf16::str_to_utf16_graphemes(value);
-        let pokestr: Vec<Option<u16>> = graphemes.iter().map(to_geniv_char).collect();
+        let graphemes_escaped = utf16::str_to_utf16_graphemes(value);
+        let mut graphemes = Vec::with_capacity(graphemes_escaped.len());
+
+        let esc_graph = Utf16Grapheme::Bmp(ESCAPE_CHAR.encode_utf16(&mut [0, 0])[0]);
+        let cod_graph = Utf16Grapheme::Bmp(ESCAPE_CODEPOINT_CHAR.encode_utf16(&mut [0, 0])[0]);
+
+        let mut last_esc = 0;
+        let mut escaped: Vec<(usize, u16)> = vec![];
+
+        for i in 0..graphemes_escaped.len() {
+            let g = graphemes_escaped[i];
+            if g == esc_graph {
+                match last_esc {
+                    0 => last_esc = 1,
+                    1 => {
+                        graphemes.push(g);
+                        last_esc = 0;
+                    }
+                    _ => return Err((i, g))
+                }
+            } else {
+                if last_esc > 0 {
+                    if last_esc == 1 && g != cod_graph { // only one possibility at the moment
+                        return Err((i, g));
+                    }
+
+                    if last_esc == 5 { // skipped all 5 characters (including code escape) now collect and parse them
+
+                        let mut digits = [0x0u16; 4];
+
+                        for j in 0..4 {
+                            let g = graphemes_escaped[i - j];
+                            match g {
+                                Utf16Grapheme::Bmp(c) => digits[j] = c,
+                                _ => return Err((i - j, g))
+                            }
+                        }
+
+                        let utf16_str = String::from_utf16(&digits).map_err(|_| (i, g))?;
+                        let gen4_code = u16::from_str_radix(&*utf16_str, 16).map_err(|_| (i, g))?;
+
+                        escaped.push((graphemes.len(), gen4_code));
+
+                        graphemes.push(CHARACTER_MAP_BY_UTF16[0].0); // just push the first available grapheme and replace later
+
+                        last_esc = 0;
+                    } else { // just continue until 5 characters
+                        last_esc += 1;
+                    }
+                } else { // ordinary character in non-escape mode
+                    graphemes.push(g);
+                }
+            }
+        }
+
+        let mut pokestr: Vec<Option<u16>> = graphemes.iter().map(to_geniv_char).collect();
+
+        for (i, c) in escaped {
+            pokestr[i] = Some(c);
+        }
+
         let invalid_grapheme = pokestr.iter().enumerate().find(|(_, g)| g.is_none());
         if let Some((i, _)) = invalid_grapheme {
-            Err(graphemes[i])
+            Err((i, graphemes[i]))
         } else {
             Ok(Gen4Str {
                 vec: pokestr.iter().map(|i| i.unwrap()).collect()
@@ -54,7 +113,7 @@ impl TryFrom<&Gen4Str> for String {
                             Utf16Grapheme::Comp(c0, c1) => vec![*c0, *c1]
                         }
                     }
-                    Err(c) => { format!("{}{:04x}", ESCAPE_CODEPOINT, c).encode_utf16().collect() }
+                    Err(c) => { format!("{}{:04x}", ESCAPE_CODEPOINT_CHAR, c).encode_utf16().collect() }
                 }
             }
             ).collect::<Vec<u16>>()).expect("Invalid UTF16 character, check the character mapping and recompile");
@@ -122,7 +181,7 @@ mod tests {
 
         let parsed = String::try_from(&hello);
 
-        let out_str = format!("H{}{:04x}{}{:04x}ell{}{:04x}o!", ESCAPE_CODEPOINT, unknown_char0, ESCAPE_CODEPOINT, unknown_char1, ESCAPE_CODEPOINT, unknown_char1);
+        let out_str = format!("H{}{:04x}{}{:04x}ell{}{:04x}o!", ESCAPE_CODEPOINT_CHAR, unknown_char0, ESCAPE_CODEPOINT_CHAR, unknown_char1, ESCAPE_CODEPOINT_CHAR, unknown_char1);
 
         assert_eq!(parsed, Err(DecodeError {
             escaped: out_str,
