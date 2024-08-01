@@ -54,7 +54,7 @@ impl TryFrom<&Gen4Str> for String {
                             Utf16Grapheme::Comp(c0, c1) => vec![*c0, *c1]
                         }
                     }
-                    Err(c) => { format!("{}{}", ESCAPE_CODEPOINT, c).encode_utf16().collect() }
+                    Err(c) => { format!("{}{:04x}", ESCAPE_CODEPOINT, c).encode_utf16().collect() }
                 }
             }
             ).collect::<Vec<u16>>()).expect("Invalid UTF16 character, check the character mapping and recompile");
