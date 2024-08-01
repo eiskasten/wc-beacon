@@ -8,7 +8,7 @@ use clap::ValueEnum;
 use crate::MacAddress;
 use crate::pcd::CardType::{Accessory, AzureFlute, Item, ManaphyEgg, MemberCard, OaksLetter, Pokemon, PokemonEgg, PoketchApp, PokewalkerArea, Rule, Seal, Secretkey, Unknown};
 use crate::pcd::Game::{Diamond, HeartGold, Pearl, Platinum, SoulSilver};
-use crate::pokestr::{Gen4Str, STRING_TERMINATOR};
+use crate::pokestr::{DecodeError, Gen4Str, STRING_TERMINATOR};
 
 pub const PCD_LENGTH: usize = PCD_PGT_LENGTH + PCD_HEADER_LENGTH + PCD_CARD_DATA_LENGTH;
 // = (856)10
@@ -221,11 +221,11 @@ impl PCD<Partitioned> {
         let icons_offset_rela = (PCD_ICONS_OFFSET - PCD_COMMENT_OFFSET) / 2;
 
         let des = Deserialized {
-            title: (&first_str(&self.state.header, PCD_TITLE_MAX_LENGTH)).try_into().unwrap(),
+            title: (&first_str(&self.state.header, PCD_TITLE_MAX_LENGTH)).try_into().unwrap_or_else(|e: DecodeError| e.escaped),
             card_type: CardType::try_from(self.state.pgt[0]).unwrap_or(Unknown),
             card_id: header[(PCD_CARD_ID_OFFSET - PCD_TITLE_OFFSET) / 2],
             games: Game::parse(header[(PCD_GAMES_OFFSET - PCD_TITLE_OFFSET) / 2].rotate_left(8)),
-            comment: (&first_str(&self.state.card_data, PCD_COMMENT_MAX_LENGTH)).try_into().unwrap(),
+            comment: (&first_str(&self.state.card_data, PCD_COMMENT_MAX_LENGTH)).try_into().unwrap_or_else(|e: DecodeError| e.escaped),
             redistribution: self.state.card_data[PCD_REDISTRIBUTION_OFFSET - PCD_COMMENT_OFFSET],
             icons: (card_data[icons_offset_rela], card_data[icons_offset_rela + 1], card_data[icons_offset_rela + 2]),
             pgt: self.state.pgt,

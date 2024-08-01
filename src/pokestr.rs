@@ -5,6 +5,9 @@ use std::string::String;
 use utf16::Utf16Grapheme;
 
 pub const STRING_TERMINATOR: u16 = 0xffff;
+pub const ESCAPE_CHAR: &str = "\\";
+pub const ESCAPE_CODEPOINT: &str = "\\x";
+
 #[derive(Debug)]
 pub struct Gen4Str {
     pub vec: Vec<u16>,
@@ -28,14 +31,33 @@ impl TryFrom<&String> for Gen4Str {
     }
 }
 
+pub struct DecodeError {
+    pub escaped: String,
+    pub idx: usize,
+    pub char: u16,
+}
+
 impl TryFrom<&Gen4Str> for String {
-    type Error = u16;
+    type Error = DecodeError;
 
     fn try_from(value: &Gen4Str) -> Result<Self, Self::Error> {
-        let utf16str: Vec<Option<&'static Utf16Grapheme>> = value.vec.iter().map(|c| to_utf16(*c)).collect();
-        let invalid_grapheme = utf16str.iter().enumerate().find(|(_, g)| g.is_none());
+        let utf16str: Vec<Result<&'static Utf16Grapheme, &u16>> = value.vec.iter().map(|c| if let Some(g) = to_utf16(*c) { Ok(g) } else { Err(c) }).collect();
+        let invalid_grapheme = utf16str.iter().enumerate().find(|(_, g)| g.is_err());
         if let Some((i, _)) = invalid_grapheme {
-            Err(value.vec[i])
+            let escaped = String::from_utf16(&*utf16str.iter().flat_map(|go|
+            {
+                match go {
+                    Ok(go) => {
+                        match go {
+                            Utf16Grapheme::Bmp(bmp) => vec![*bmp],
+                            Utf16Grapheme::Comp(c0, c1) => vec![*c0, *c1]
+                        }
+                    }
+                    Err(c) => { format!("{}{}", ESCAPE_CODEPOINT, c).encode_utf16().collect() }
+                }
+            }
+            ).collect::<Vec<u16>>()).expect("Invalid UTF16 character, check the character mapping and recompile");
+            Err(DecodeError { escaped, idx: i, char: value.vec[i] })
         } else {
             Ok(String::from_utf16(&*utf16str.iter().flat_map(|go|
             {
