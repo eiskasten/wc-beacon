@@ -31,6 +31,7 @@ impl TryFrom<&String> for Gen4Str {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct DecodeError {
     pub escaped: String,
     pub idx: usize,
@@ -94,4 +95,39 @@ fn to_geniv_char(grapheme: &Utf16Grapheme) -> Option<u16> {
         }
     }
     CHARACTER_MAP_BY_UTF16.binary_search_by(|(u, _)| u.cmp(grapheme)).map(|i| CHARACTER_MAP_BY_UTF16[i].1).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gen4_deserialize_hello() {
+        let hello = Gen4Str { vec: "Hello!".encode_utf16().map(|c| to_geniv_char(&Utf16Grapheme::Bmp(c)).unwrap()).collect() };
+
+        let parsed = String::try_from(&hello);
+        assert_eq!(parsed, Ok("Hello!".to_string()));
+    }
+
+    #[test]
+    fn gen4_deserialize_hello_unknown() {
+        let mut hello = Gen4Str { vec: "Hello!".encode_utf16().map(|c| to_geniv_char(&Utf16Grapheme::Bmp(c)).unwrap()).collect() };
+        let unknown_char0 = 0x08e0;
+        let unknown_char1 = 0xa0a1;
+
+        hello.vec.insert(1, unknown_char0);
+        hello.vec.insert(2, unknown_char1);
+        hello.vec.insert(6, unknown_char1);
+
+
+        let parsed = String::try_from(&hello);
+
+        let out_str = format!("H{}{:04x}{}{:04x}ell{}{:04x}o!", ESCAPE_CODEPOINT, unknown_char0, ESCAPE_CODEPOINT, unknown_char1, ESCAPE_CODEPOINT, unknown_char1);
+
+        assert_eq!(parsed, Err(DecodeError {
+            escaped: out_str,
+            idx: 1,
+            char: unknown_char0,
+        }));
+    }
 }
