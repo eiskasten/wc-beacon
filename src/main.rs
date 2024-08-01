@@ -20,9 +20,14 @@ mod decrypt;
 mod pokestr;
 mod info;
 mod error;
+mod species;
 
 pub mod pokestrmap {
     include!(concat!(env!("OUT_DIR"), "/pokestrmap.rs"));
+}
+
+pub mod speciesmap {
+    include!(concat!(env!("OUT_DIR"), "/speciesmap.rs"));
 }
 
 /// The main entry point of the CLI application.

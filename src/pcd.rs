@@ -9,6 +9,7 @@ use crate::MacAddress;
 use crate::pcd::CardType::{Accessory, AzureFlute, Item, ManaphyEgg, MemberCard, OaksLetter, Pokemon, PokemonEgg, PoketchApp, PokewalkerArea, Rule, Seal, Secretkey, Unknown};
 use crate::pcd::Game::{Diamond, HeartGold, Pearl, Platinum, SoulSilver};
 use crate::pokestr::{DecodeError, Gen4Str, STRING_TERMINATOR};
+use crate::species::species_by_pokedex;
 
 pub const PCD_LENGTH: usize = PCD_PGT_LENGTH + PCD_HEADER_LENGTH + PCD_CARD_DATA_LENGTH;
 // = (856)10
@@ -304,12 +305,17 @@ fn put_str(dest: &mut [u8], str: &String, max_len: usize) {
 
 impl Display for PCD<Deserialized> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "title: {}\ticons: {:?}\n\
+        let icon_names = (
+            species_by_pokedex(self.state.icons.0 as usize).unwrap_or("None"),
+            species_by_pokedex(self.state.icons.1 as usize).unwrap_or("None"),
+            species_by_pokedex(self.state.icons.2 as usize).unwrap_or("None")
+        );
+        write!(f, "title: {}\ticons: {}({}),{}({}),{}({})\n\
         type: {:?}\tcard ID: {}\n\n\
         {}\n\n\
         games: {:?}\n\
         redistribution limit: {}{}\n\
-        received: {}\n", self.state.title, self.state.icons, self.state.card_type, self.state.card_id, self.state.comment, self.state.games, self.state.redistribution, if self.state.redistribution == 0xff { "(unlimited)" } else { "" }, self.state.received)
+        received: {}\n", self.state.title, icon_names.0, self.state.icons.0, icon_names.1, self.state.icons.1, icon_names.2, self.state.icons.2, self.state.card_type, self.state.card_id, self.state.comment, self.state.games, self.state.redistribution, if self.state.redistribution == 0xff { "(unlimited)" } else { "" }, self.state.received)
     }
 }
 
