@@ -337,12 +337,13 @@ impl Display for PCD<Deserialized> {
             species_by_pokedex(self.state.icons.1 as usize).unwrap_or("None"),
             species_by_pokedex(self.state.icons.2 as usize).unwrap_or("None")
         );
+        let (year, month, day) = self.received();
         write!(f, "title: {}\ticons: {}({}),{}({}),{}({})\n\
         type: {:?}\tcard ID: {}\n\n\
         {}\n\n\
         games: {:?}\n\
         redistribution limit: {}{}\n\
-        received: {}\n", self.state.title, icon_names.0, self.state.icons.0, icon_names.1, self.state.icons.1, icon_names.2, self.state.icons.2, self.state.card_type, self.state.card_id, self.state.comment, self.state.games, self.state.redistribution, if self.state.redistribution == 0xff { "(unlimited)" } else { "" }, self.state.received)
+        received: {}-{:02}-{:02}\n", self.state.title, icon_names.0, self.state.icons.0, icon_names.1, self.state.icons.1, icon_names.2, self.state.icons.2, self.state.card_type, self.state.card_id, self.state.comment, self.state.games, self.state.redistribution, if self.state.redistribution == 0xff { "(unlimited)" } else { "" }, year, month, day)
     }
 }
 
