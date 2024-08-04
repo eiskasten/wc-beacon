@@ -294,6 +294,33 @@ impl PCD<Deserialized> {
             }
         }
     }
+
+    /// Calculates the received date and returns it as a tuple.
+    /// Representation: (year, month of year, day of month) 
+    pub fn received(&self) -> (u16, u8, u8) {
+        let approx_years = self.state.received / 365; // works until 2365, max year un u16 days is 2179
+        let corrected_days = self.state.received - approx_years / 4 + approx_years / 100 - approx_years / 400 - 1;
+
+        let years = corrected_days / 365;
+        let is_leap = (years % 4 == 0 && years % 100 != 0) || years % 400 == 0;
+        let remaining_days = corrected_days - years * 365 + if is_leap { 1 } else { 0 };
+
+        let mut month = 0;
+        let mut day_acc = 0;
+        let mut day_acc_limited = 0;
+
+        while day_acc <= remaining_days {
+            day_acc_limited = day_acc;
+            day_acc += match month {
+                0 | 2 | 4 | 6 | 7 | 9 | 11 => 31,
+                1 => if is_leap { 29 } else { 28 },
+                _ => 30
+            };
+            month += 1;
+        }
+
+        (years + 2000, month, (remaining_days - day_acc_limited + 1) as u8)
+    }
 }
 
 fn put_str(dest: &mut [u8], str: &String, max_len: usize) {
@@ -483,4 +510,19 @@ pub fn zero_pad(header: PCDHeader) -> PCDFragment {
     let mut padded_header: PCDFragment = [0; PCD_FRAGMENT_LENGTH];
     padded_header[..PCD_HEADER_LENGTH].copy_from_slice(&header);
     padded_header
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn date_deserialization() {
+        let mut pcd = PCD::<Deserialized>::new();
+
+        assert_eq!((2179, 6, 6), pcd.received());
+
+        pcd.state.received = 8982;
+        assert_eq!((2024, 8, 4), pcd.received());
+    }
 }
