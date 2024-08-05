@@ -40,7 +40,7 @@ pub const PCD_ICONS_OFFSET: usize = 0x34a;
 
 pub const PCD_RECEIVED_OFFSET: usize = 0x354;
 
-pub const PCD_REDISTRIBUTION_OFFSET: usize = 0x356;
+pub const PCD_REDISTRIBUTION_OFFSET: usize = 0x348;
 
 pub type PCDFragment = [u8; PCD_FRAGMENT_LENGTH];
 pub type PCDHeader = [u8; PCD_HEADER_LENGTH];
