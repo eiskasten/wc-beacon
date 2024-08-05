@@ -1,16 +1,16 @@
 [package]
 name = "wc-beacon"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Eiskasten"]
 description = "Pokemon Gen IV Wondercard distribution and decryption utility"
 license = "GPL-3.0-only"
 
 [dependencies]
-pcap = "1.1.0"
-crc = "3.0.1"
+pcap = "2.0.0"
+crc = "3.2.1"
 rc4 = "0.1.0"
-clap = { version = "4.3.23", features = ["derive"] }
+clap = { version = "4.5.13", features = ["derive"] }
 utf16 = { path = "utf16" }
 
 [build-dependencies]
