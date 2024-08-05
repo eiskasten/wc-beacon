@@ -293,8 +293,8 @@ impl PCD<Deserialized> {
         pgt[PCD_CARD_GIFT_INSTANCE_OFFSET..PCD_CARD_GIFT_INSTANCE_OFFSET + 2].copy_from_slice(&des.gift_instance.to_le_bytes());
 
         put_str(&mut header, &des.title, PCD_TITLE_MAX_LENGTH);
-        header[PCD_CARD_ID_OFFSET..PCD_CARD_ID_OFFSET + 2].copy_from_slice(&des.card_id.to_le_bytes());
-        header[PCD_GAMES_OFFSET..PCD_GAMES_OFFSET + 2].copy_from_slice(&serialize_games(&des.games).to_be_bytes());
+        header[PCD_CARD_ID_OFFSET - PCD_PGT_LENGTH..PCD_CARD_ID_OFFSET + 2 - PCD_PGT_LENGTH].copy_from_slice(&des.card_id.to_le_bytes());
+        header[PCD_GAMES_OFFSET - PCD_PGT_LENGTH..PCD_GAMES_OFFSET + 2 - PCD_PGT_LENGTH].copy_from_slice(&serialize_games(&des.games).to_be_bytes());
 
         put_str(&mut card_data, &des.comment, PCD_COMMENT_MAX_LENGTH);
         card_data[PCD_ICONS_OFFSET - PCD_COMMENT_OFFSET..PCD_ICONS_OFFSET - PCD_COMMENT_OFFSET + 2].copy_from_slice(&des.received.to_le_bytes());
