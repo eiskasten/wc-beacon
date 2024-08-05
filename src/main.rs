@@ -11,14 +11,14 @@ use clap::{Parser, Subcommand, ValueEnum};
 
 use crate::beacon::distribute;
 use crate::decrypt::decrypt;
-use crate::info::{info, set};
+use crate::crud::{info, set};
 use crate::pcd::{CardType, Game};
 
 mod pcd;
 mod beacon;
 mod decrypt;
 mod pokestr;
-mod info;
+mod crud;
 mod error;
 mod species;
 
