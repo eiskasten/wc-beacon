@@ -47,7 +47,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             distribute(pcd, region, device, address.unwrap_or([0xa4, 0xc0, 0xe1, 0x6e, 0x76, 0x80]), interval),
         Command::Decrypt { epcd, checksum, address, pcd } => decrypt(epcd, checksum, address, pcd),
         Command::Info { pcd } => info(pcd),
-        Command::Set { title, kind: card_type, card_id, games, description: comment, redistribution, icons, pgt, date: received, pcd, output } => set(title, card_type, card_id, games, comment, redistribution, icons, pgt, received, pcd, output)
+        Command::Set { title, kind: card_type, gift_instance, card_id, games, description: comment, redistribution, icons, pgt, date: received, pcd, output } => set(title, card_type, card_id, gift_instance, games, comment, redistribution, icons, pgt, received, pcd, output)
     }
 }
 
@@ -105,7 +105,7 @@ enum Command {
     /// Create a new PCD file or edit an existing one
     #[command(name = "set")]
     Set {
-        /// PCD file to edit, non-destructive only for input, leave empty to create from scratch
+        /// PCD file to edit, non-destructive only for input, leave empty to create from scratch, kind and gift instance id have precedence over pcd data
         #[arg(short, long, value_name = "PCD_FILE")]
         pcd: Option<PathBuf>,
         /// Wonder Card title
@@ -117,6 +117,9 @@ enum Command {
         /// Wonder Card ID
         #[arg(short, long, value_name = "ID")]
         card_id: Option<u16>,
+        /// Gift instance, use id from item, pokewalker area, poketch app, rule, seal, accessory or unknown
+        #[arg(long, value_name = "GIFT INSTANCE ID")]
+        gift_instance: Option<u16>,
         /// Games to distribute to
         #[arg(short, long, value_name = "GAMES")]
         games: Option<Vec<Game>>,

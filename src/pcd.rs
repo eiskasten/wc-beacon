@@ -22,6 +22,7 @@ pub const PCD_FRAGMENT_LENGTH: usize = PCD_EXTENDED_LENGTH / (PCD_FRAGMENTS - 1)
 
 /// Attribute const offsets are absolute to pcd raw data
 pub const PCD_CARD_TYPE_OFFSET: usize = 0x0;
+pub const PCD_CARD_GIFT_INSTANCE_OFFSET: usize = 0x4;
 pub const PCD_TITLE_OFFSET: usize = 0x104;
 
 pub const PCD_CARD_ID_OFFSET: usize = 0x150;
@@ -137,6 +138,7 @@ fn serialize_games(games: &[Game]) -> u16 {
 pub struct Deserialized {
     pub title: String,
     pub card_type: CardType,
+    pub gift_instance: u16,
     pub card_id: u16,
     pub games: Vec<Game>,
     pub comment: String,
@@ -212,18 +214,28 @@ impl From<PCD<Raw>> for PCD<Partitioned> {
     }
 }
 
+/// Get basic information from raw pcd data.
+///
+/// # Returns
+///
+/// `(CardType, gift_instance)`
+pub fn pgt_info(pgt: &[u8; PCD_PGT_LENGTH]) -> (CardType, u16) {
+    (CardType::try_from(pgt[0]).unwrap_or(Unknown), u16::from_le_bytes([pgt[PCD_CARD_GIFT_INSTANCE_OFFSET], pgt[PCD_CARD_GIFT_INSTANCE_OFFSET + 1]]))
+}
+
 impl PCD<Partitioned> {
     pub fn deserialize(self) -> PCD<Deserialized> {
-
-        // self.state.header
         let header: Vec<u16> = self.state.header.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
         let card_data: Vec<u16> = self.state.card_data.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+
+        let pgt = pgt_info(&self.state.pgt);
 
         let icons_offset_rela = (PCD_ICONS_OFFSET - PCD_COMMENT_OFFSET) / 2;
 
         let des = Deserialized {
             title: (&first_str(&self.state.header, PCD_TITLE_MAX_LENGTH)).try_into().unwrap_or_else(|e: DecodeError| e.escaped),
-            card_type: CardType::try_from(self.state.pgt[0]).unwrap_or(Unknown),
+            card_type: pgt.0,
+            gift_instance: pgt.1,
             card_id: header[(PCD_CARD_ID_OFFSET - PCD_TITLE_OFFSET) / 2],
             games: Game::parse(header[(PCD_GAMES_OFFSET - PCD_TITLE_OFFSET) / 2].rotate_left(8)),
             comment: (&first_str(&self.state.card_data, PCD_COMMENT_MAX_LENGTH)).try_into().unwrap_or_else(|e: DecodeError| e.escaped),
@@ -259,6 +271,7 @@ impl PCD<Deserialized> {
             state: Deserialized {
                 title: "".to_string(),
                 card_type: CardType::None,
+                gift_instance: 0,
                 card_id: 0,
                 games: vec![],
                 comment: "".to_string(),
@@ -277,6 +290,7 @@ impl PCD<Deserialized> {
         let mut pgt = des.pgt.clone();
 
         pgt[PCD_CARD_TYPE_OFFSET] = des.card_type as u8;
+        pgt[PCD_CARD_GIFT_INSTANCE_OFFSET..PCD_CARD_GIFT_INSTANCE_OFFSET + 2].copy_from_slice(&des.gift_instance.to_le_bytes());
 
         put_str(&mut header, &des.title, PCD_TITLE_MAX_LENGTH);
         header[PCD_CARD_ID_OFFSET..PCD_CARD_ID_OFFSET + 2].copy_from_slice(&des.card_id.to_le_bytes());
@@ -296,7 +310,7 @@ impl PCD<Deserialized> {
     }
 
     /// Calculates the received date and returns it as a tuple.
-    /// Representation: (year, month of year, day of month) 
+    /// Representation: (year, month of year, day of month)
     pub fn received(&self) -> (u16, u8, u8) {
         let approx_years = self.state.received / 365; // works until 2365, max year un u16 days is 2179
         let corrected_days = self.state.received - approx_years / 4 + approx_years / 100 - approx_years / 400 - 1;
@@ -339,11 +353,11 @@ impl Display for PCD<Deserialized> {
         );
         let (year, month, day) = self.received();
         write!(f, "title: {}\ticons: {}({}),{}({}),{}({})\n\
-        type: {:?}\tcard ID: {}\n\n\
+        type: {:?}\tinstance: {}\tcard ID: {}\n\n\
         {}\n\n\
         games: {:?}\n\
         redistribution limit: {}{}\n\
-        received: {}-{:02}-{:02}\n", self.state.title, icon_names.0, self.state.icons.0, icon_names.1, self.state.icons.1, icon_names.2, self.state.icons.2, self.state.card_type, self.state.card_id, self.state.comment, self.state.games, self.state.redistribution, if self.state.redistribution == 0xff { "(unlimited)" } else { "" }, year, month, day)
+        received: {}-{:02}-{:02}\n", self.state.title, icon_names.0, self.state.icons.0, icon_names.1, self.state.icons.1, icon_names.2, self.state.icons.2, self.state.card_type, self.state.gift_instance, self.state.card_id, self.state.comment, self.state.games, self.state.redistribution, if self.state.redistribution == 0xff { "(unlimited)" } else { "" }, year, month, day)
     }
 }
 

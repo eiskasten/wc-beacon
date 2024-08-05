@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use crate::error::err_reason;
-use crate::pcd::{CardType, Deserialized, Game, Partitioned, PCD, PCD_LENGTH, Raw};
+use crate::pcd::{CardType, Deserialized, Game, Partitioned, PCD, PCD_LENGTH, pgt_info, Raw};
 
 
 pub fn info(pcd: PathBuf) -> Result<(), Box<dyn Error>> {
@@ -17,7 +17,7 @@ pub fn info(pcd: PathBuf) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn set(title: Option<String>, card_type: Option<CardType>, card_id: Option<u16>, games: Option<Vec<Game>>, comment: Option<String>, redistribution: Option<u8>, icons: Option<Vec<u16>>, pgt: Option<PathBuf>, received: Option<u16>, pcd: Option<PathBuf>, output: PathBuf) -> Result<(), Box<dyn Error>> {
+pub fn set(title: Option<String>, card_type: Option<CardType>, card_id: Option<u16>, gift_instance: Option<u16>, games: Option<Vec<Game>>, comment: Option<String>, redistribution: Option<u8>, icons: Option<Vec<u16>>, pgt: Option<PathBuf>, received: Option<u16>, pcd: Option<PathBuf>, output: PathBuf) -> Result<(), Box<dyn Error>> {
     let mut pcd = if let Some(f) = pcd {
         let data = fs::read(f).map_err(|e| err_reason("Unable to read pcd file", e))?;
         let raw: PCD<Raw> = PCD::try_from(data.as_slice())?;
@@ -29,10 +29,6 @@ pub fn set(title: Option<String>, card_type: Option<CardType>, card_id: Option<u
 
     if let Some(t) = title {
         pcd.state.title = t;
-    }
-
-    if let Some(c) = card_type {
-        pcd.state.card_type = c;
     }
 
     if let Some(c) = card_id {
@@ -66,6 +62,18 @@ pub fn set(title: Option<String>, card_type: Option<CardType>, card_id: Option<u
             Ok(len) => if len > 0 { eprintln!("warning: provided pgt file is bigger than expected and will be truncated") }
             Err(e) => eprintln!("warning: unable to check if pgt file is too long: {}", e)
         }
+
+        let (card_type, gift_instance) = pgt_info(&pcd.state.pgt);
+        pcd.state.card_type = card_type;
+        pcd.state.gift_instance = gift_instance;
+    }
+
+    if let Some(c) = card_type {
+        pcd.state.card_type = c;
+    }
+
+    if let Some(gift_instance) = gift_instance {
+        pcd.state.gift_instance = gift_instance;
     }
 
     let pcd: PCD<Raw> = (&pcd.serialize()).try_into()?;
