@@ -36,7 +36,7 @@ pub const PCD_COMMENT_OFFSET: usize = 0x154;
 /// Length in u16 units inclusive termination
 pub const PCD_COMMENT_MAX_LENGTH: usize = (PCD_REDISTRIBUTION_OFFSET - PCD_COMMENT_OFFSET) / 2;
 
-pub const PCD_ICONS_OFFSET: usize = 0x34b;
+pub const PCD_ICONS_OFFSET: usize = 0x34a;
 
 pub const PCD_RECEIVED_OFFSET: usize = 0x354;
 
@@ -297,7 +297,16 @@ impl PCD<Deserialized> {
         header[PCD_GAMES_OFFSET - PCD_PGT_LENGTH..PCD_GAMES_OFFSET + 2 - PCD_PGT_LENGTH].copy_from_slice(&serialize_games(&des.games).to_be_bytes());
 
         put_str(&mut card_data, &des.comment, PCD_COMMENT_MAX_LENGTH);
-        card_data[PCD_ICONS_OFFSET - PCD_COMMENT_OFFSET..PCD_ICONS_OFFSET - PCD_COMMENT_OFFSET + 2].copy_from_slice(&des.received.to_le_bytes());
+        
+        let icons = [des.icons.0,des.icons.1,des.icons.2].iter().flat_map(|i|i.to_le_bytes()).collect::<Vec<u8>>();
+        
+        eprintln!("{:?} {:?}", des.icons, icons);
+        
+        card_data[PCD_ICONS_OFFSET - PCD_COMMENT_OFFSET..PCD_ICONS_OFFSET - PCD_COMMENT_OFFSET + 2*3].copy_from_slice(icons.as_slice());
+        
+        eprintln!("{:?}", &card_data[PCD_ICONS_OFFSET-PCD_COMMENT_OFFSET..PCD_ICONS_OFFSET-PCD_COMMENT_OFFSET+2*3]);
+        
+        card_data[PCD_RECEIVED_OFFSET - PCD_COMMENT_OFFSET..PCD_RECEIVED_OFFSET - PCD_COMMENT_OFFSET + 2].copy_from_slice(&des.received.to_le_bytes());
         card_data[PCD_REDISTRIBUTION_OFFSET - PCD_COMMENT_OFFSET] = des.redistribution;
 
         PCD {
