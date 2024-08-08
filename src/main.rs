@@ -2,7 +2,6 @@
 
 extern crate core;
 
-use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::result::Result;

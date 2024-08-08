@@ -343,7 +343,11 @@ impl PCD<Deserialized> {
 }
 
 fn put_str(dest: &mut [u8], str: &String, max_len: usize) {
-    let enc: Vec<u16> = Gen4Str::try_from(str).expect("should be validated before call").vec;
+    let enc_res = Gen4Str::try_from(str);
+    let enc = enc_res.unwrap_or_else(|err| {
+        eprintln!("Warning: invalid character '{}' on index {}, invalid characters will be skipped", err.char, err.idx);
+        err.sanitized
+    }).vec;
     let len = min(enc.len(), max_len - 1) * 2;
     dest[..len].copy_from_slice(&enc.iter().flat_map(|c| c.to_le_bytes()).collect::<Vec<u8>>());
     dest[len..max_len * 2].copy_from_slice(&vec![0xffu8; max_len * 2 - len])

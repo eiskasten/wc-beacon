@@ -13,9 +13,15 @@ pub struct Gen4Str {
     pub vec: Vec<u16>,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct EncodeError {
+    pub sanitized: Gen4Str,
+    pub idx: usize,
+    pub char: Utf16Grapheme,
+}
 
 impl TryFrom<&String> for Gen4Str {
-    type Error = (usize, Utf16Grapheme);
+    type Error = EncodeError;
 
     fn try_from(value: &String) -> Result<Self, Self::Error> {
         let graphemes_escaped = utf16::str_to_utf16_graphemes(value);
@@ -27,6 +33,8 @@ impl TryFrom<&String> for Gen4Str {
         let mut last_esc = 0;
         let mut escaped: Vec<(usize, u16)> = vec![];
 
+        let mut err = None;
+
         for i in 0..graphemes_escaped.len() {
             let g = graphemes_escaped[i];
             if g == esc_graph {
@@ -36,12 +44,22 @@ impl TryFrom<&String> for Gen4Str {
                         graphemes.push(g);
                         last_esc = 0;
                     }
-                    _ => return Err((i, g))
+                    _ => {
+                        if err.is_none() {
+                            err = Some((i, g));
+                        }
+                        last_esc = 0;
+                        continue;
+                    }
                 }
             } else {
                 if last_esc > 0 {
                     if last_esc == 1 && g != cod_graph { // only one possibility at the moment
-                        return Err((i, g));
+                        if err.is_none() {
+                            err = Some((i, g));
+                        }
+                        last_esc = 0;
+                        continue;
                     }
 
                     if last_esc == 5 { // skipped all 5 characters (including code escape) now collect and parse them
@@ -52,12 +70,34 @@ impl TryFrom<&String> for Gen4Str {
                             let g = graphemes_escaped[i - j];
                             match g {
                                 Utf16Grapheme::Bmp(c) => digits[digits.len() - j - 1] = c,
-                                _ => return Err((i - j, g))
+                                _ => {
+                                    if err.is_none() {
+                                        err = Some((i - j, g));
+                                    }
+                                    last_esc = 0;
+                                    continue;
+                                }
                             }
                         }
 
-                        let utf16_str = String::from_utf16(&digits).map_err(|_| (i, g))?;
-                        let gen4_code = u16::from_str_radix(&*utf16_str, 16).map_err(|_| (i, g))?;
+                        let utf16_str = String::from_utf16(&digits);
+                        if utf16_str.is_err() {
+                            if err.is_none() {
+                                err = Some((i, g));
+                            }
+                            continue;
+                        }
+                        let utf16_str = utf16_str.unwrap();
+
+                        let gen4_code = u16::from_str_radix(&*utf16_str, 16);
+                        if gen4_code.is_err() {
+                            if err.is_none() {
+                                err = Some((i, g));
+                            }
+                            last_esc = 0;
+                            continue;
+                        }
+                        let gen4_code = gen4_code.unwrap();
 
                         escaped.push((graphemes.len(), gen4_code));
 
@@ -80,12 +120,24 @@ impl TryFrom<&String> for Gen4Str {
         }
 
         let invalid_grapheme = pokestr.iter().enumerate().find(|(_, g)| g.is_none());
+
+        let str = Gen4Str { vec: pokestr.iter().flatten().map(|c| *c).collect() };
+
         if let Some((i, _)) = invalid_grapheme {
-            Err((i, graphemes[i]))
-        } else {
-            Ok(Gen4Str {
-                vec: pokestr.iter().map(|i| i.unwrap()).collect()
+            Err(EncodeError {
+                sanitized: str,
+                idx: i,
+                char: graphemes[i],
             })
+        } else {
+            if let Some(err) = err {
+                return Err(EncodeError {
+                    sanitized: str,
+                    idx: err.0,
+                    char: err.1,
+                });
+            }
+            Ok(str)
         }
     }
 }
