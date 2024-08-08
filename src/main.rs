@@ -34,20 +34,17 @@ pub mod speciesmap {
 ///
 /// Parses command-line arguments using the `Cli` struct, and then executes
 /// the appropriate command based on the parsed input.
-///
-/// # Returns
-///
-/// Returns `Ok(())` if the program runs successfully, otherwise returns an
-/// error wrapped in a `Box<dyn Error>`.
-///
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
     let cli = Cli::parse();
-    match cli.command {
+    let res = match cli.command {
         Command::Distribute { pcd, region, device, address, interval } =>
             distribute(pcd, region, device, address.unwrap_or([0xa4, 0xc0, 0xe1, 0x6e, 0x76, 0x80]), interval),
         Command::Decrypt { epcd, checksum, address, pcd } => decrypt(epcd, checksum, address, pcd),
         Command::Info { pcd } => info(pcd),
         Command::Set { title, kind: card_type, gift_instance, card_id, games, description: comment, redistribution, icons, pgt, date: received, pcd, output } => set(title, card_type, card_id, gift_instance, games, comment, redistribution, icons, pgt, received, pcd, output)
+    };
+    if let Err(err) = res {
+        eprintln!("Error: {}", err);
     }
 }
 

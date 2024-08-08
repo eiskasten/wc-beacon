@@ -300,11 +300,7 @@ impl PCD<Deserialized> {
         
         let icons = [des.icons.0,des.icons.1,des.icons.2].iter().flat_map(|i|i.to_le_bytes()).collect::<Vec<u8>>();
         
-        eprintln!("{:?} {:?}", des.icons, icons);
-        
         card_data[PCD_ICONS_OFFSET - PCD_COMMENT_OFFSET..PCD_ICONS_OFFSET - PCD_COMMENT_OFFSET + 2*3].copy_from_slice(icons.as_slice());
-        
-        eprintln!("{:?}", &card_data[PCD_ICONS_OFFSET-PCD_COMMENT_OFFSET..PCD_ICONS_OFFSET-PCD_COMMENT_OFFSET+2*3]);
         
         card_data[PCD_RECEIVED_OFFSET - PCD_COMMENT_OFFSET..PCD_RECEIVED_OFFSET - PCD_COMMENT_OFFSET + 2].copy_from_slice(&des.received.to_le_bytes());
         card_data[PCD_REDISTRIBUTION_OFFSET - PCD_COMMENT_OFFSET] = des.redistribution;
