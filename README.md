@@ -10,6 +10,7 @@ It is just a Pokémon Distribution Rom, but for the PC.
 
 - Distributing wondercards via Wi-Fi
 - Decrypting wondercards dumped from distributions
+- Edit wondercards or create new from scratch or from existing PGTs
 
 ## Differences to the Pokémon Distribution Rom
 
@@ -60,6 +61,12 @@ The restriction for channel 7 may be removed in the future.
 
 After these steps, you may finally distribute your wondercards using the example below.
 
+If you want to edit a wondercard, please consult
+
+```sh
+./wc-beacon set --help
+```
+
 ## Examples
 
 Here are some example usages of Wondercard Beacon:
@@ -78,6 +85,41 @@ sudo ./wc-beacon dist -p membercard.pcd -r en -d wlp0s20f3
 For further options, run `./wc-beacon dist --help` and `./wc-beacon dec --help`.
 
 `membercard.pcd` and `membercard.pcd.enc` are assumed to be located in the same directory as your executable.
+
+To set the icons on an existing wondercard to darkrai, none and dialga, add a note to the title and make the wondercard
+compatible with diamond as well use:
+
+```sh
+./wc-beacon set -p membercard.pcd -i 491 -i 0 -i 483  -t 'The \x01d1 Member Card!' -g platinum -g diamond -o membercard.pcd
+```
+
+Hint: Some symbols require special encoding, e.g. to put a note into the title or description use `\x01d1`.
+For other symbols refer to https://bulbapedia.bulbagarden.net/wiki/Character_encoding_(Generation_IV)#Character_set and
+prepend the symbol from the table with `\x`.
+
+Show the new wondercard:
+
+```sh
+./wc-beacon info -p membercard.pcd 
+```
+
+will output:
+
+```
+title: The ♪ Member Card!	icons: Darkrai(491),None(0),Dialga(483)
+type: MemberCard	instance: 0	card ID: 18
+
+For more info on how to get DARKRAI,
+visit the official Pokémon website.
+Be sure to save your game after you
+pick up the Member Card at a
+Poké Mart.
+
+
+games: [Diamond, Platinum]
+redistribution limit: 0
+received: 2009-08-03
+```
 
 ## Windows
 

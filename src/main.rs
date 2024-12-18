@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use std::error::Error;
+extern crate core;
+
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::result::Result;
@@ -9,27 +10,40 @@ use clap::{Parser, Subcommand, ValueEnum};
 
 use crate::beacon::distribute;
 use crate::decrypt::decrypt;
+use crate::crud::{info, set};
+use crate::pcd::{CardType, Game};
 
 mod pcd;
 mod beacon;
 mod decrypt;
+mod pokestr;
+mod crud;
+mod error;
+mod species;
+
+pub mod pokestrmap {
+    include!(concat!(env!("OUT_DIR"), "/pokestrmap.rs"));
+}
+
+pub mod speciesmap {
+    include!(concat!(env!("OUT_DIR"), "/speciesmap.rs"));
+}
 
 /// The main entry point of the CLI application.
 ///
 /// Parses command-line arguments using the `Cli` struct, and then executes
 /// the appropriate command based on the parsed input.
-///
-/// # Returns
-///
-/// Returns `Ok(())` if the program runs successfully, otherwise returns an
-/// error wrapped in a `Box<dyn Error>`.
-///
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
     let cli = Cli::parse();
-    match cli.command {
+    let res = match cli.command {
         Command::Distribute { pcd, region, device, address, interval } =>
             distribute(pcd, region, device, address.unwrap_or([0xa4, 0xc0, 0xe1, 0x6e, 0x76, 0x80]), interval),
-        Command::Decrypt { epcd, checksum, address, pcd } => decrypt(epcd, checksum, address, pcd)
+        Command::Decrypt { epcd, checksum, address, pcd } => decrypt(epcd, checksum, address, pcd),
+        Command::Info { pcd } => info(pcd),
+        Command::Set { title, kind: card_type, gift_instance, card_id, games, description: comment, redistribution, icons, pgt, date: received, pcd, output } => set(title, card_type, card_id, gift_instance, games, comment, redistribution, icons, pgt, received, pcd, output)
+    };
+    if let Err(err) = res {
+        eprintln!("Error: {}", err);
     }
 }
 
@@ -77,6 +91,53 @@ enum Command {
         #[arg(short, long, value_name = "PCD_FILE")]
         pcd: PathBuf,
     },
+    /// Show information about a given pcd file
+    #[command(name = "info")]
+    Info {
+        /// The PCD file to show the information about
+        #[arg(short, long, value_name = "PCD_FILE")]
+        pcd: PathBuf
+    },
+    /// Create a new PCD file or edit an existing one
+    #[command(name = "set")]
+    Set {
+        /// PCD file to edit, non-destructive only for input, leave empty to create from scratch, kind and gift instance id have precedence over pcd data
+        #[arg(short, long, value_name = "PCD_FILE")]
+        pcd: Option<PathBuf>,
+        /// Wonder Card title
+        #[arg(short, long, value_name = "TITLE")]
+        title: Option<String>,
+        /// Wonder Card Type
+        #[arg(short, long, value_name = "KIND")]
+        kind: Option<CardType>,
+        /// Wonder Card ID
+        #[arg(short, long, value_name = "ID")]
+        card_id: Option<u16>,
+        /// Gift instance, use id from item, pokewalker area, poketch app, rule, seal, accessory or unknown
+        #[arg(long, value_name = "GIFT INSTANCE ID")]
+        gift_instance: Option<u16>,
+        /// Games to distribute to
+        #[arg(short, long, value_name = "GAMES")]
+        games: Option<Vec<Game>>,
+        /// Wonder Card comment/description
+        #[arg(short, long, value_name = "DESCRIPTION")]
+        description: Option<String>,
+        /// How often players can redistribute, 255 for unlimited
+        #[arg(short, long, value_name = "REDISTRIBUTION")]
+        redistribution: Option<u8>,
+        /// Exactly 3 Wonder Card Icons (use arg 3 times), use Pokédex index and 0 for none
+        #[arg(short, long, value_name = "ICONS")]
+        icons: Option<Vec<u16>>,
+        /// PGT File
+        #[arg(long, value_name = "PGT")]
+        pgt: Option<PathBuf>,
+        /// Wonder Card received date
+        #[arg(long, value_name = "received")]
+        date: Option<u16>,
+        /// Output
+        #[arg(short, long, value_name = "FILE")]
+        output: PathBuf,
+    },
 }
 
 /// Region codes.
@@ -110,15 +171,15 @@ pub enum GGID {
 impl Display for GGID {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(
-        match self {
-            GGID::Japanese => "jp",
-            GGID::English => "en",
-            GGID::French => "fr",
-            GGID::German => "de",
-            GGID::Italian => "it",
-            GGID::Spanish => "es",
-            GGID::Korean => "ko",
-        })
+            match self {
+                GGID::Japanese => "jp",
+                GGID::English => "en",
+                GGID::French => "fr",
+                GGID::German => "de",
+                GGID::Italian => "it",
+                GGID::Spanish => "es",
+                GGID::Korean => "ko",
+            })
     }
 }
 
