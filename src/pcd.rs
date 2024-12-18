@@ -258,7 +258,7 @@ impl PCD<Partitioned> {
 fn first_str(data: &[u8], max_len: usize) -> Gen4Str {
     let chunks = data.chunks_exact(2).map(|c| u16::from_le_bytes(c.try_into().expect("string must have even u8s")));
     let mut chunks_clone = chunks.clone();
-    let len = min(max_len, chunks_clone.position(|e| e == STRING_TERMINATOR).unwrap_or(max_len)).checked_sub(1).unwrap_or(0);
+    let len = min(max_len, chunks_clone.position(|e| e == STRING_TERMINATOR).unwrap_or(max_len));
 
     let str_vec = chunks.take(len).collect();
 
@@ -297,11 +297,11 @@ impl PCD<Deserialized> {
         header[PCD_GAMES_OFFSET - PCD_PGT_LENGTH..PCD_GAMES_OFFSET + 2 - PCD_PGT_LENGTH].copy_from_slice(&serialize_games(&des.games).to_be_bytes());
 
         put_str(&mut card_data, &des.comment, PCD_COMMENT_MAX_LENGTH);
-        
+
         let icons = [des.icons.0,des.icons.1,des.icons.2].iter().flat_map(|i|i.to_le_bytes()).collect::<Vec<u8>>();
-        
+
         card_data[PCD_ICONS_OFFSET - PCD_COMMENT_OFFSET..PCD_ICONS_OFFSET - PCD_COMMENT_OFFSET + 2*3].copy_from_slice(icons.as_slice());
-        
+
         card_data[PCD_RECEIVED_OFFSET - PCD_COMMENT_OFFSET..PCD_RECEIVED_OFFSET - PCD_COMMENT_OFFSET + 2].copy_from_slice(&des.received.to_le_bytes());
         card_data[PCD_REDISTRIBUTION_OFFSET - PCD_COMMENT_OFFSET] = des.redistribution;
 
