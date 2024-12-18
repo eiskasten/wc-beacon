@@ -125,7 +125,7 @@ enum Command {
         /// How often players can redistribute, 255 for unlimited
         #[arg(short, long, value_name = "REDISTRIBUTION")]
         redistribution: Option<u8>,
-        /// Exactly 3 Wonder Card Icons, use Pokédex index and 0 for none
+        /// Exactly 3 Wonder Card Icons (use arg 3 times), use Pokédex index and 0 for none
         #[arg(short, long, value_name = "ICONS")]
         icons: Option<Vec<u16>>,
         /// PGT File
@@ -135,7 +135,7 @@ enum Command {
         #[arg(long, value_name = "received")]
         date: Option<u16>,
         /// Output
-        #[arg(long, value_name = "FILE")]
+        #[arg(short, long, value_name = "FILE")]
         output: PathBuf,
     },
 }
